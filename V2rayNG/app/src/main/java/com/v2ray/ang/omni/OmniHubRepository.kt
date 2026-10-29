@@ -45,12 +45,12 @@ class OmniHubRepository(context: Context) {
         val existing = store.load().firstOrNull { it.subscriptionUrl.equals(parsed.toString(), ignoreCase = true) }
         if (existing != null) throw OmniHubException("This subscription is already connected")
 
-        val subId = subscriptions.saveSubscription("") {
-            remarks = name
-            url = parsed.toString()
-            enabled = true
-            autoUpdate = true
-            allowInsecureUrl = allowInsecure
+        val subId = subscriptions.saveSubscription("") { item ->
+            item.remarks = name
+            item.url = parsed.toString()
+            item.enabled = true
+            item.autoUpdate = true
+            item.allowInsecureUrl = allowInsecure
         } ?: throw OmniHubException("The subscription storage refused the new panel")
         val panel = OmniPanel(
             name = name,
@@ -111,12 +111,12 @@ class OmniHubRepository(context: Context) {
             val parsed = validateUrl(subscription, allowInsecure)
             val responseName = runCatching { JSONObject(text).optString("name").takeIf { it.isNotBlank() } }.getOrNull()
             val name = displayName.trim().ifBlank { responseName ?: parsed.host }
-            val subId = subscriptions.saveSubscription("") {
-                remarks = name
-                url = parsed.toString()
-                enabled = true
-                autoUpdate = true
-                allowInsecureUrl = allowInsecure
+            val subId = subscriptions.saveSubscription("") { item ->
+                item.remarks = name
+                item.url = parsed.toString()
+                item.enabled = true
+                item.autoUpdate = true
+                item.allowInsecureUrl = allowInsecure
             } ?: throw OmniHubException("The subscription storage refused the paired panel")
             val panel = OmniPanel(
                 name = name,

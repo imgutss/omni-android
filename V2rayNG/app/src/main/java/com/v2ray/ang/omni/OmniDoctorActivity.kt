@@ -101,6 +101,8 @@ fun OmniDoctorScreen(initialPanelId: String?, onBack: () -> Unit) {
     fun appendProbe(id: String, outcome: OmniProbeOutcome) {
         val summary = when {
             outcome.status == OmniDoctorStatus.FAIL -> context.getString(R.string.omni_doctor_network_failed)
+            outcome.status == OmniDoctorStatus.SKIPPED -> outcome.raw
+            outcome.status == OmniDoctorStatus.WARN && id != "http" -> outcome.raw
             id == "http" && outcome.status == OmniDoctorStatus.WARN -> context.getString(R.string.omni_doctor_http_warn)
             id == "dns" -> context.getString(R.string.omni_doctor_dns_pass, outcome.value)
             id == "tcp" -> context.getString(R.string.omni_doctor_tcp_pass, outcome.value)

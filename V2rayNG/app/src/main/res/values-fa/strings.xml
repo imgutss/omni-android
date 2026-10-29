@@ -423,6 +423,7 @@
     <string name="server_test_delay_value">%1$d میلی‌ثانیه</string>
     <string name="server_test_delay_detailed_value">%1$s %2$d میلی‌ثانیه · %3$d/%4$d · ±%5$d میلی‌ثانیه</string>
     <string name="server_test_no_response">بدون پاسخ</string>
+    <string name="connection_test_untested">در وضعیت فعلی قابل سنجش نیست</string>
     <string name="server_test_no_response_samples">هیچ پاسخی دریافت نشد؛ جزئیات نمونه‌ها در Doctor</string>
     <string name="connection_test_error">آزمایش اتصال ناموفق بود: %s</string>
     <string name="connection_test_fail">اینترنت در دسترس نیست</string>

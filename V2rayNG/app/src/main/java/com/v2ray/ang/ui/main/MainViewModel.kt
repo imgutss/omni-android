@@ -290,25 +290,29 @@ class MainViewModel(
     }
 
     private fun formatConnectionTestResult(result: ConnectionTestResult): String {
-        val status = if (result.delayMillis >= 0) {
-            val delay = if (result.sampleCount > 0 && result.kind.isNotBlank()) {
-                dataSource.getString(
-                    R.string.server_test_delay_detailed_value,
-                    result.kind,
-                    result.delayMillis,
-                    result.successfulSamples,
-                    result.sampleCount,
-                    result.jitterMillis,
-                )
-            } else {
-                dataSource.getString(R.string.server_test_delay_value, result.delayMillis)
+        val status = when {
+            result.delayMillis > 0L -> {
+                val delay = if (result.sampleCount > 0 && result.kind.isNotBlank()) {
+                    dataSource.getString(
+                        R.string.server_test_delay_detailed_value,
+                        result.kind,
+                        result.delayMillis,
+                        result.successfulSamples,
+                        result.sampleCount,
+                        result.jitterMillis,
+                    )
+                } else {
+                    dataSource.getString(R.string.server_test_delay_value, result.delayMillis)
+                }
+                dataSource.getString(R.string.connection_test_available, delay)
             }
-            dataSource.getString(R.string.connection_test_available, delay)
-        } else {
-            val detail = result.errorMessage.ifBlank {
-                dataSource.getString(R.string.connection_test_empty_message)
+            result.delayMillis == 0L -> dataSource.getString(R.string.connection_test_untested)
+            else -> {
+                val detail = result.errorMessage.ifBlank {
+                    dataSource.getString(R.string.connection_test_empty_message)
+                }
+                dataSource.getString(R.string.connection_test_error, detail)
             }
-            dataSource.getString(R.string.connection_test_error, detail)
         }
 
         if (result.delayMillis < 0 || (result.country == null && result.ipAddress == null)) {

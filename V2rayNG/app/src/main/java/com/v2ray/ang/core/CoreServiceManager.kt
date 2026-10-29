@@ -698,7 +698,7 @@ object CoreServiceManager {
             }
             val stats = OmniPingStatistics.summarize(samples, OmniPingStatistics.KIND_HTTP)
             ensureActive()
-            val endpoint = if (stats.delayMillis >= 0) SpeedtestManager.getRemoteIPInfo() else null
+            val endpoint = if (stats.delayMillis > 0) SpeedtestManager.getRemoteIPInfo() else null
             val result = ConnectionTestResult(
                 delayMillis = stats.delayMillis,
                 errorMessage = errorStr,
