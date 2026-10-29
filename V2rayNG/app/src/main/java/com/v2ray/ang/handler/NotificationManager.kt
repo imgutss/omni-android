@@ -105,7 +105,7 @@ object NotificationManager {
         val channelId = createNotificationChannel()
 
         mBuilder = NotificationCompat.Builder(service, channelId)
-.setSmallIcon(R.drawable.ic_omni_stat)
+            .setSmallIcon(R.drawable.ic_omni_stat)
             .setContentTitle(currentConfig?.remarks ?: service.getString(R.string.app_name))
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)

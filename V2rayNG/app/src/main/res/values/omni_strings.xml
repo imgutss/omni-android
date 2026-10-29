@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="omni_hub_subtitle">Connect one or more panels you own. No central panel or bot token is required.</string>
-    <string name="omni_hub_secure_note">Subscription links are encrypted with an Android Keystore key. They are never shown in the panel list.</string>
+    <string name="omni_hub_secure_note">Hub metadata and its subscription-link copy are encrypted with Android Keystore. Links are hidden here; the existing subscription engine also keeps an app-private record.</string>
     <string name="omni_hub_add_subscription">Add subscription link</string>
     <string name="omni_hub_pair_code">Pair with code</string>
     <string name="omni_hub_sync_all">Sync all</string>
@@ -72,7 +72,7 @@
     <string name="omni_doctor_network_failed">No valid response was received; read the raw status.</string>
     <string name="omni_doctor_dns_pass">The panel name resolved to: %1$s</string>
     <string name="omni_doctor_tcp_pass">TCP connected in %1$s.</string>
-    <string name="omni_doctor_tls_pass">TLS handshake succeeded (%1$s).</string>
+    <string name="omni_doctor_tls_pass">TLS certificate and hostname verified (%1$s).</string>
     <string name="omni_doctor_http_pass">Panel HTTP status: %1$s</string>
     <string name="omni_doctor_http_warn">The panel answered, but access or the endpoint was not verified.</string>
 </resources>

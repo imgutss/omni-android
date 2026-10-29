@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
+        description: 'Version to build and publish, without the leading v (for example 0.3.0)'
         required: false
         type: string
   push:
@@ -224,3 +225,36 @@ jobs:
         path: ${{ github.workspace }}/V2rayNG/app/build/outputs/apk/playstore/release/*.apk
         if-no-files-found: error
         retention-days: 30
+
+  release:
+    name: Publish GitHub release
+    if: github.event_name == 'workflow_dispatch' && inputs.release_tag != ''
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - name: Download signed APKs
+      uses: actions/download-artifact@v4
+      with:
+        name: omni-apks
+        path: release-apks
+
+    - name: Publish permanent release assets
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        RELEASE_VERSION: ${{ inputs.release_tag }}
+        RELEASE_REPOSITORY: ${{ github.repository }}
+      run: |
+        set -euo pipefail
+        if [[ ! "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+          echo "Release version must look like 0.3.0, without a leading v" >&2
+          exit 1
+        fi
+        cd release-apks
+        test -n "$(find . -maxdepth 1 -name '*.apk' -print -quit)"
+        sha256sum ./*.apk > SHA256SUMS
+        gh release create "v${RELEASE_VERSION}" ./*.apk ./SHA256SUMS \
+          --repo "$RELEASE_REPOSITORY" \
+          --title "Omni v${RELEASE_VERSION}" \
+          --generate-notes

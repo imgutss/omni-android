@@ -347,7 +347,11 @@ private fun ServerListItem(
 ) {
     val testResult = when {
         row.testDelayMillis == 0L -> ""
-        row.testDelayMillis < 0L && row.testSampleCount > 0 -> stringResource(R.string.server_test_no_response_samples)
+        row.testDelayMillis < 0L && row.testSampleCount > 0 -> stringResource(
+            R.string.server_test_no_response_samples,
+            row.testSuccessfulSamples,
+            row.testSampleCount,
+        )
         row.testDelayMillis < 0L -> stringResource(R.string.server_test_no_response)
         row.testSampleCount > 0 && row.testKind.isNotBlank() -> stringResource(
             R.string.server_test_delay_detailed_value,

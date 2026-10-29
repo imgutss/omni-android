@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="omni_hub_subtitle">یک یا چند پنل متعلق به خودتان را وصل کنید؛ بدون پنل مرکزی یا توکن ربات.</string>
-    <string name="omni_hub_secure_note">لینک‌های اشتراک با کلید Android Keystore رمز می‌شوند و در فهرست پنل‌ها نمایش داده نمی‌شوند.</string>
+    <string name="omni_hub_secure_note">فرادادهٔ Hub و نسخهٔ لینک اشتراک آن با Android Keystore رمز می‌شوند. لینک‌ها اینجا پنهان‌اند؛ موتور اشتراک فعلی نیز یک رکورد خصوصیِ داخل برنامه نگه می‌دارد.</string>
     <string name="omni_hub_add_subscription">افزودن لینک اشتراک</string>
     <string name="omni_hub_pair_code">اتصال با کد</string>
     <string name="omni_hub_sync_all">همگام‌سازی همه</string>
@@ -72,7 +72,7 @@
     <string name="omni_doctor_network_failed">پاسخ معتبری دریافت نشد؛ وضعیت خام را ببینید.</string>
     <string name="omni_doctor_dns_pass">نام پنل به این IP تبدیل شد: %1$s</string>
     <string name="omni_doctor_tcp_pass">اتصال TCP در %1$s برقرار شد.</string>
-    <string name="omni_doctor_tls_pass">دست‌دهی TLS موفق بود (%1$s).</string>
+    <string name="omni_doctor_tls_pass">گواهی TLS و نام میزبان تأیید شد (%1$s).</string>
     <string name="omni_doctor_http_pass">وضعیت HTTP پنل: %1$s</string>
     <string name="omni_doctor_http_warn">پنل پاسخ داد، اما دسترسی یا مسیر تأیید نشد.</string>
 </resources>

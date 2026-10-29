@@ -50,10 +50,11 @@ object OmniDoctorProbe {
         try {
             val addresses = InetAddress.getAllByName(url.host)
             val elapsed = elapsed(started)
+            val resolved = addresses.joinToString { it.hostAddress ?: "unknown" }
             OmniProbeOutcome(
                 OmniDoctorStatus.PASS,
-                "DNS ${url.host} -> ${addresses.joinToString { it.hostAddress }}; ${elapsed} ms",
-                addresses.joinToString { it.hostAddress },
+                "DNS ${url.host} -> $resolved; ${elapsed} ms",
+                resolved,
             )
         } catch (error: Exception) {
             failure("DNS", error, started)
@@ -85,11 +86,13 @@ object OmniDoctorProbe {
             (factory.createSocket() as SSLSocket).use { socket ->
                 socket.soTimeout = 8000
                 socket.connect(InetSocketAddress(url.host, url.port), 7000)
+                // A bare handshake alone does not establish that this certificate belongs to the panel.
+                socket.sslParameters = socket.sslParameters.apply { endpointIdentificationAlgorithm = "HTTPS" }
                 socket.startHandshake()
                 val elapsed = elapsed(started)
                 OmniProbeOutcome(
                     OmniDoctorStatus.PASS,
-                    "TLS handshake ${url.host}:${url.port}; protocol=${socket.session.protocol}; ${elapsed} ms",
+                    "TLS certificate+hostname verified ${url.host}:${url.port}; protocol=${socket.session.protocol}; ${elapsed} ms",
                     socket.session.protocol,
                 )
             }

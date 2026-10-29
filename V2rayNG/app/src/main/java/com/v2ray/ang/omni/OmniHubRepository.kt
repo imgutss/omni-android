@@ -97,7 +97,7 @@ class OmniHubRepository(context: Context) {
             throw networkFailure(error)
         }
         response.use {
-            val text = it.body?.string().orEmpty()
+            val text = it.body.string()
             if (!it.isSuccessful) {
                 val hint = if (it.code == 404) {
                     "This panel has no pairing endpoint (HTTP 404); use its subscription link instead"
