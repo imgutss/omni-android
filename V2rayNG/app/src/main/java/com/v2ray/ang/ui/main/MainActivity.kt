@@ -55,6 +55,7 @@ import com.v2ray.ang.omni.OmniScannerActivity
 import com.v2ray.ang.omni.OmniSyncCenterActivity
 import com.v2ray.ang.omni.OmniSpeedLabActivity
 import com.v2ray.ang.omni.OmniRoutingStudioActivity
+import com.v2ray.ang.omni.OmniDnsLabActivity
 import com.v2ray.ang.ui.userasset.UserAssetActivity
 import com.v2ray.ang.util.LogUtil
 import com.v2ray.ang.util.Utils
@@ -178,6 +179,7 @@ class MainActivity : HelperBaseComponentActivity() {
             MainDestination.OmniSyncCenter -> Intent(this, OmniSyncCenterActivity::class.java)
             MainDestination.OmniSpeedLab -> Intent(this, OmniSpeedLabActivity::class.java)
             MainDestination.OmniRoutingStudio -> Intent(this, OmniRoutingStudioActivity::class.java)
+            MainDestination.OmniDnsLab -> Intent(this, OmniDnsLabActivity::class.java)
         }
         settingsActivityLauncher.launch(intent)
     }

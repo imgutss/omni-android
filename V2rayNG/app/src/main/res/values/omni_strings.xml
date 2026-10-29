@@ -258,4 +258,33 @@
     <string name="omni_routing_reason_outbound">Matching rule has no outbound tag.</string>
     <string name="omni_routing_load_failed">Stored routing rules could not be loaded.</string>
     <string name="omni_routing_invalid_input">Enter a host, a port from 1 to 65535 and a network.</string>
+
+    <string name="omni_dns_title">Omni DNS Lab</string>
+    <string name="omni_dns_subtitle">Compare real system-resolver and DNS-over-HTTPS answers. Every provider keeps its own status, latency and answers.</string>
+    <string name="omni_dns_host">DNS name</string>
+    <string name="omni_dns_record_type">Record type</string>
+    <string name="omni_dns_providers">Resolvers to query</string>
+    <string name="omni_dns_custom_url">Custom HTTPS DoH endpoint</string>
+    <string name="omni_dns_privacy_note">The queried name is sent to every selected DoH provider. System answers may come from the OS resolver/cache; no tunnel-only claim is made.</string>
+    <string name="omni_dns_run">Run DNS queries</string>
+    <string name="omni_dns_active">Querying: %1$s</string>
+    <string name="omni_dns_system">System resolver</string>
+    <string name="omni_dns_google">Google DoH</string>
+    <string name="omni_dns_cloudflare">Cloudflare DoH</string>
+    <string name="omni_dns_custom">Custom DoH</string>
+    <string name="omni_dns_pass">Valid DNS response</string>
+    <string name="omni_dns_nxdomain">NXDOMAIN: name does not exist</string>
+    <string name="omni_dns_fail">Query failed</string>
+    <string name="omni_dns_elapsed">Elapsed: %1$d ms</string>
+    <string name="omni_dns_http_status">HTTP status: %1$d</string>
+    <string name="omni_dns_response_status">DNS status: %1$d</string>
+    <string name="omni_dns_error">Evidence: %1$s</string>
+    <string name="omni_dns_no_answers">NOERROR with no answers (NODATA).</string>
+    <string name="omni_dns_answer">%1$s · type %2$d · TTL %3$s · %4$s</string>
+    <string name="omni_dns_no_ttl">not supplied</string>
+    <string name="omni_dns_no_name">unnamed answer</string>
+    <string name="omni_dns_invalid_input">Enter a valid DNS name and an HTTPS custom DoH endpoint when selected.</string>
+    <string name="omni_dns_no_provider">Select at least one resolver.</string>
+    <string name="omni_dns_complete">All selected resolvers returned a DNS response.</string>
+    <string name="omni_dns_partial">One or more resolver queries failed; successful rows remain independent.</string>
 </resources>

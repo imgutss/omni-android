@@ -95,8 +95,8 @@ class OmniScannerViewModel(application: Application) : AndroidViewModel(applicat
     fun updatePorts(value: String) = mutableState.update { it.copy(portsInput = value, message = null) }
     fun updateConcurrency(value: String) = mutableState.update { it.copy(concurrencyInput = value, message = null) }
     fun updateMaxTargets(value: String) = mutableState.update { it.copy(maxTargetsInput = value, message = null) }
-    fun updateDownloadUrl(value: String) = mutableState.update { it.copy(downloadUrlInput = value, message = null) }
-    fun updateUploadUrl(value: String) = mutableState.update { it.copy(uploadUrlInput = value, message = null) }
+    fun updateDownloadUrl(value: String) = mutableState.update { it.copy(downloadUrlInput = value, connectivity = null, transfer = null, message = null) }
+    fun updateUploadUrl(value: String) = mutableState.update { it.copy(uploadUrlInput = value, connectivity = null, transfer = null, message = null) }
     fun selectTemplate(guid: String) = mutableState.update { it.copy(selectedTemplateGuid = guid, message = null) }
     fun selectPanel(panelId: String) = mutableState.update { it.copy(selectedPanelId = panelId, message = null) }
 

@@ -68,10 +68,16 @@ class OmniSpeedLabViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
-    fun updateDownloadUrl(value: String) = mutableState.update { it.copy(downloadUrlInput = value, message = null) }
-    fun updateUploadUrl(value: String) = mutableState.update { it.copy(uploadUrlInput = value, message = null) }
-    fun updateDownloadSize(value: String) = mutableState.update { it.copy(downloadSizeInput = value, message = null) }
-    fun updateUploadSize(value: String) = mutableState.update { it.copy(uploadSizeInput = value, message = null) }
+    fun updateDownloadUrl(value: String) = clearTransferOnInput { it.copy(downloadUrlInput = value) }
+    fun updateUploadUrl(value: String) = clearTransferOnInput { it.copy(uploadUrlInput = value) }
+    fun updateDownloadSize(value: String) = clearTransferOnInput { it.copy(downloadSizeInput = value) }
+    fun updateUploadSize(value: String) = clearTransferOnInput { it.copy(uploadSizeInput = value) }
+
+    private fun clearTransferOnInput(change: (OmniSpeedLabUiState) -> OmniSpeedLabUiState) {
+        if (!mutableState.value.speedRunning) {
+            mutableState.update { current -> change(current).copy(connectivity = null, transfer = null, message = null) }
+        }
+    }
 
     fun runSpeedTest() {
         val current = mutableState.value

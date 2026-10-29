@@ -84,12 +84,13 @@ fun OmniSpeedLabScreen(
                         selected?.let {
                             Text(stringResource(R.string.omni_speed_selected_profile, it.profile.remarks.ifBlank { it.guid }, it.profile.configType.name), style = MaterialTheme.typography.bodySmall)
                         }
-                        OutlinedTextField(value = state.downloadUrlInput, onValueChange = onDownloadUrl, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text(stringResource(R.string.omni_scanner_download_url)) })
-                        OutlinedTextField(value = state.uploadUrlInput, onValueChange = onUploadUrl, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text(stringResource(R.string.omni_scanner_upload_url)) })
+                        OutlinedTextField(value = state.downloadUrlInput, onValueChange = onDownloadUrl, enabled = !state.speedRunning, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text(stringResource(R.string.omni_scanner_download_url)) })
+                        OutlinedTextField(value = state.uploadUrlInput, onValueChange = onUploadUrl, enabled = !state.speedRunning, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text(stringResource(R.string.omni_scanner_upload_url)) })
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedTextField(
                                 value = state.downloadSizeInput,
                                 onValueChange = onDownloadSize,
+                                enabled = !state.speedRunning,
                                 modifier = Modifier.weight(1f),
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -98,6 +99,7 @@ fun OmniSpeedLabScreen(
                             OutlinedTextField(
                                 value = state.uploadSizeInput,
                                 onValueChange = onUploadSize,
+                                enabled = !state.speedRunning,
                                 modifier = Modifier.weight(1f),
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),

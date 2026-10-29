@@ -258,4 +258,33 @@
     <string name="omni_routing_reason_outbound">قاعده‌ی matchشده outbound tag ندارد.</string>
     <string name="omni_routing_load_failed">قواعد مسیریابی ذخیره‌شده بارگذاری نشدند.</string>
     <string name="omni_routing_invalid_input">هاست، پورت ۱ تا ۶۵۵۳۵ و شبکه را وارد کن.</string>
+
+    <string name="omni_dns_title">آزمایشگاه DNS اومنی</string>
+    <string name="omni_dns_subtitle">پاسخ‌های واقعی resolver سیستم و DNS-over-HTTPS را مقایسه کن. وضعیت، زمان و answer هر provider جدا است.</string>
+    <string name="omni_dns_host">نام DNS</string>
+    <string name="omni_dns_record_type">نوع رکورد</string>
+    <string name="omni_dns_providers">Resolverهای تست</string>
+    <string name="omni_dns_custom_url">Endpoint سفارشی HTTPS DoH</string>
+    <string name="omni_dns_privacy_note">نام درخواست‌شده برای همه‌ی providerهای DoH انتخاب‌شده ارسال می‌شود. پاسخ سیستم ممکن است از resolver/cache سیستم‌عامل باشد؛ ادعای tunnel-only نمی‌شود.</string>
+    <string name="omni_dns_run">اجرای کوئری‌های DNS</string>
+    <string name="omni_dns_active">در حال کوئری: %1$s</string>
+    <string name="omni_dns_system">Resolver سیستم</string>
+    <string name="omni_dns_google">Google DoH</string>
+    <string name="omni_dns_cloudflare">Cloudflare DoH</string>
+    <string name="omni_dns_custom">DoH سفارشی</string>
+    <string name="omni_dns_pass">پاسخ DNS معتبر</string>
+    <string name="omni_dns_nxdomain">NXDOMAIN: نام وجود ندارد</string>
+    <string name="omni_dns_fail">کوئری ناموفق</string>
+    <string name="omni_dns_elapsed">زمان: %1$d ms</string>
+    <string name="omni_dns_http_status">وضعیت HTTP: %1$d</string>
+    <string name="omni_dns_response_status">وضعیت DNS: %1$d</string>
+    <string name="omni_dns_error">شواهد: %1$s</string>
+    <string name="omni_dns_no_answers">NOERROR بدون answer (NODATA).</string>
+    <string name="omni_dns_answer">%1$s · type %2$d · TTL %3$s · %4$s</string>
+    <string name="omni_dns_no_ttl">ارائه نشده</string>
+    <string name="omni_dns_no_name">answer بدون نام</string>
+    <string name="omni_dns_invalid_input">نام DNS معتبر و در صورت انتخاب، endpoint سفارشی HTTPS DoH وارد کن.</string>
+    <string name="omni_dns_no_provider">دست‌کم یک resolver را انتخاب کن.</string>
+    <string name="omni_dns_complete">همه‌ی resolverهای انتخاب‌شده پاسخ DNS دادند.</string>
+    <string name="omni_dns_partial">یک یا چند کوئری resolver ناموفق بود؛ ردیف‌های موفق مستقل باقی می‌مانند.</string>
 </resources>
