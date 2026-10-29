@@ -86,8 +86,68 @@ internal class OmniPanelStore(context: Context) {
         save(panels)
     }
 
+    fun scopedSession(panelId: String): OmniScopedSession? = synchronized(lock) {
+        loadScopedSessions().firstOrNull { it.panelId == panelId && it.validAt(System.currentTimeMillis()) }
+    }
+
+    fun saveScopedSession(session: OmniScopedSession) = synchronized(lock) {
+        val sessions = loadScopedSessions().filterNot { it.panelId == session.panelId } + session
+        saveScopedSessions(sessions)
+    }
+
+    fun removeScopedSession(panelId: String) = synchronized(lock) {
+        saveScopedSessions(loadScopedSessions().filterNot { it.panelId == panelId })
+    }
+
     fun remove(id: String) {
         save(load().filterNot { it.id == id })
+        removeScopedSession(id)
+    }
+
+    private fun loadScopedSessions(): List<OmniScopedSession> {
+        val payload = preferences.getString(KEY_SCOPED_PAYLOAD, null) ?: return emptyList()
+        return try {
+            val array = JSONArray(decrypt(payload))
+            buildList {
+                for (index in 0 until array.length()) {
+                    val item = array.getJSONObject(index)
+                    val scopes = item.optJSONArray("scopes")?.let { values ->
+                        buildSet { for (scope in 0 until values.length()) add(values.getString(scope)) }
+                    } ?: emptySet()
+                    add(OmniScopedSession(
+                        panelId = item.getString("panelId"),
+                        accessToken = item.getString("accessToken"),
+                        userUuid = item.getString("userUuid"),
+                        scopes = scopes,
+                        expiresAt = item.optLong("expiresAt", 0L),
+                    ))
+                }
+            }
+        } catch (error: Exception) {
+            throw OmniHubException("Secure scoped storage could not be read", null).initCause(error)
+        }
+    }
+
+    private fun saveScopedSessions(sessions: List<OmniScopedSession>) {
+        val array = JSONArray()
+        sessions.forEach { session ->
+            array.put(JSONObject()
+                .put("panelId", session.panelId)
+                .put("accessToken", session.accessToken)
+                .put("userUuid", session.userUuid)
+                .put("scopes", JSONArray(session.scopes.toList()))
+                .put("expiresAt", session.expiresAt))
+        }
+        try {
+            val encrypted = encrypt(array.toString())
+            if (!preferences.edit().putString(KEY_SCOPED_PAYLOAD, encrypted).commit()) {
+                throw OmniHubException("Secure scoped storage refused the update")
+            }
+        } catch (error: OmniHubException) {
+            throw error
+        } catch (error: Exception) {
+            throw OmniHubException("Secure scoped storage could not be written", null).initCause(error)
+        }
     }
 
     private fun key(): SecretKey {
@@ -130,6 +190,7 @@ internal class OmniPanelStore(context: Context) {
     private companion object {
         const val PREFS = "omni_hub_secure"
         const val KEY_PAYLOAD = "panels_v1"
+        const val KEY_SCOPED_PAYLOAD = "scoped_sessions_v1"
         const val KEY_ALIAS = "omni.hub.aes.v1"
         const val ANDROID_KEYSTORE = "AndroidKeyStore"
         const val TRANSFORMATION = "AES/GCM/NoPadding"

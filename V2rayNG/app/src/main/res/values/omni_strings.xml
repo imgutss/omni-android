@@ -114,4 +114,32 @@
     <string name="omni_scanner_ping_metrics">Core HTTP ping: %1$d/%2$d successful · median %3$s ms · jitter %4$s ms</string>
     <string name="omni_scanner_no_saved">Save a built configuration first; the speed lab tests that saved configuration.</string>
     <string name="omni_scanner_speed_failed">The native tunnel test failed; no speed or connectivity is claimed.</string>
+
+    <string name="omni_scanner_panel_title">Same-user panel publishing</string>
+    <string name="omni_scanner_panel_note">Publish uses only this device\'s scoped Scanner Pack capability. Save local and Hub Sync are separate actions.</string>
+    <string name="omni_scanner_panel_none">Pair a panel in Hub first</string>
+    <string name="omni_scanner_publish">Publish Scanner Pack</string>
+    <string name="omni_scanner_hub_sync">Hub Sync</string>
+    <string name="omni_scanner_publish_result">Published %1$d configurations to group %2$s.</string>
+    <string name="omni_scanner_publish_preserved">Other groups and relays were preserved by the panel.</string>
+    <string name="omni_scanner_publish_unconfirmed">Panel response did not confirm preservation; inspect the panel before retrying.</string>
+    <string name="omni_scanner_sync_result">Hub Sync imported %1$d configurations.</string>
+    <string name="omni_scanner_no_panel">Connect and pair your own panel in Omni Hub first.</string>
+    <string name="omni_scanner_publish_failed">Scanner Pack publish failed; no panel change is claimed.</string>
+    <string name="omni_scanner_published">Scanner Pack published to the bound panel user.</string>
+    <string name="omni_scanner_sync_failed">Hub Sync failed; no successful sync is claimed.</string>
+    <string name="omni_scanner_synced">Hub Sync completed.</string>
+    <string name="omni_scanner_scan_failed">Scan stopped with an error; partial results remain untested until probed.</string>
+    <string name="omni_hub_pair_qr">Pair with QR</string>
+    <string name="omni_hub_pair_qr_hint">Scan the one-time pairing QR from your own panel, or paste its payload below.</string>
+    <string name="omni_hub_pair_payload">Pairing code or QR payload</string>
+    <string name="omni_hub_scoped_title">Scoped device access</string>
+    <string name="omni_hub_scoped_none">No active scoped device session</string>
+    <string name="omni_hub_scoped_capabilities">Capabilities: %1$s</string>
+    <string name="omni_hub_scope_templates">Template read</string>
+    <string name="omni_hub_scope_device">Device report</string>
+    <string name="omni_hub_scope_scanner">Scanner Pack publish</string>
+    <string name="omni_hub_revoke">Revoke device access</string>
+    <string name="omni_hub_revoked">Scoped device access revoked</string>
+    <string name="omni_hub_revoke_failed">Device access revocation failed; local token was kept.</string>
 </resources>

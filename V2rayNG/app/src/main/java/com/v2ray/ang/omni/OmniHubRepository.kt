@@ -1,7 +1,12 @@
 package com.v2ray.ang.omni
 
 import android.content.Context
+import com.v2ray.ang.dto.entities.ProfileItem
 import com.v2ray.ang.dto.entities.SubscriptionCache
+import com.v2ray.ang.enums.EConfigType
+import com.v2ray.ang.fmt.TrojanFmt
+import com.v2ray.ang.fmt.VlessFmt
+import com.v2ray.ang.fmt.VmessFmt
 import com.v2ray.ang.handler.AngConfigManager
 import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.ui.subscription.SubEditRepository
@@ -13,6 +18,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
 import java.net.SocketTimeoutException
@@ -76,13 +82,26 @@ class OmniHubRepository(context: Context) {
         displayName: String,
         allowInsecure: Boolean,
     ): OmniPanel = withContext(Dispatchers.IO) {
-        val base = normalizeBase(baseUrl, allowInsecure)
-        val pairingCode = code.trim()
+        val rawCode = code.trim()
+        val qr = rawCode.toHttpUrlOrNull()
+        val base = if (qr != null && rawCode.startsWith("http", ignoreCase = true)) {
+            val validatedQr = validateUrl(rawCode, allowInsecure)
+            if (validatedQr.encodedPath != "/api/app/pair") throw OmniHubException("The pairing QR must point to the panel pairing endpoint")
+            val qrBase = originOf(validatedQr)
+            if (baseUrl.isNotBlank() && normalizeBase(baseUrl, allowInsecure) != qrBase) {
+                throw OmniHubException("The pairing QR belongs to a different panel")
+            }
+            qrBase
+        } else {
+            normalizeBase(baseUrl, allowInsecure)
+        }
+        val pairingCode = qr?.queryParameter("code") ?: rawCode
         if (pairingCode.isEmpty()) throw OmniHubException("Enter the pairing code from your panel")
         val endpoint = "$base/api/app/pair"
         val body = JSONObject()
             .put("code", pairingCode)
             .put("client", "Omni Android")
+            .put("device", "Omni Android")
             .toString()
             .toRequestBody(JSON)
         val response = try {
@@ -106,11 +125,13 @@ class OmniHubRepository(context: Context) {
                 }
                 throw OmniHubException(hint, it.code)
             }
-            val subscription = parseSubscriptionResponse(text)
-                ?: throw OmniHubException("Pairing returned no subscription URL")
-            val parsed = validateUrl(subscription, allowInsecure)
-            val responseName = runCatching { JSONObject(text).optString("name").takeIf { it.isNotBlank() } }.getOrNull()
-            val name = displayName.trim().ifBlank { responseName ?: parsed.host }
+            val pair = parsePairResponse(text)
+            val parsed = validateUrl(pair.subscriptionUrl, allowInsecure)
+            val panelOrigin = originOf(validateUrl(base, allowInsecure))
+            if (originOf(parsed) != panelOrigin) {
+                throw OmniHubException("Pairing returned a subscription for a different panel")
+            }
+            val name = displayName.trim().ifBlank { pair.displayName ?: parsed.host }
             val subId = subscriptions.saveSubscription("") { item ->
                 item.remarks = name
                 item.url = parsed.toString()
@@ -128,9 +149,13 @@ class OmniHubRepository(context: Context) {
                 lastStatusDetail = "Pairing succeeded; subscription not yet synced",
                 lastCheckedAt = System.currentTimeMillis(),
             )
+            val scoped = pair.session?.copy(panelId = panel.id)
             try {
                 store.replace(panel)
+                if (scoped != null) store.saveScopedSession(scoped)
             } catch (error: Exception) {
+                if (scoped != null) runCatching { store.removeScopedSession(panel.id) }
+                runCatching { store.remove(panel.id) }
                 runCatching { subscriptions.deleteSubscription(subId) }
                 throw error
             }
@@ -143,6 +168,68 @@ class OmniHubRepository(context: Context) {
             throw OmniHubException("The panel could not be removed; its subscription was left intact")
         }
         store.remove(panel.id)
+    }
+
+    suspend fun scopedScopes(panel: OmniPanel): Set<String> = withContext(Dispatchers.IO) {
+        store.scopedSession(panel.id)?.scopes ?: emptySet()
+    }
+
+    /** Publishes only through the token-bound Scanner Pack route; no administrator fallback exists. */
+    suspend fun publishScannerPack(panel: OmniPanel, profiles: List<ProfileItem>): OmniScannerPublishResult = withContext(Dispatchers.IO) {
+        require(profiles.size <= 2000) { "Up to 2000 configurations are allowed" }
+        val session = store.scopedSession(panel.id)
+            ?: throw OmniHubException("Pair this panel with a scoped device code first")
+        if (!session.hasScope("scanner:publish", System.currentTimeMillis())) {
+            throw OmniHubException("This paired device has no active Scanner Publish capability")
+        }
+        val uris = profiles.map { profile ->
+            when (profile.configType) {
+                EConfigType.VLESS -> VlessFmt.toUri(profile)
+                EConfigType.VMESS -> VmessFmt.toUri(profile)
+                EConfigType.TROJAN -> TrojanFmt.toUri(profile)
+                else -> throw OmniHubException("Only VLESS, VMess and Trojan Scanner Pack entries are supported")
+            }.also { uri -> if (uri.isBlank()) throw OmniHubException("A built configuration could not be serialized") }
+        }
+        val body = JSONObject().put("uris", JSONArray(uris)).toString().toRequestBody(JSON)
+        val response = try {
+            client.newCall(Request.Builder()
+                .url("${panel.baseUrl}/api/app/scanner-packs")
+                .header("Accept", "application/json")
+                .header("Authorization", "Bearer ${session.accessToken}")
+                .post(body)
+                .build()).execute()
+        } catch (error: Exception) {
+            throw networkFailure(error)
+        }
+        response.use {
+            val text = it.body.string()
+            if (!it.isSuccessful) throw OmniHubException("Scanner Publish refused: HTTP ${it.code}", it.code)
+            val json = runCatching { JSONObject(text) }.getOrElse { throw OmniHubException("Scanner Publish returned invalid JSON") }
+            if (!json.optBoolean("ok", false)) throw OmniHubException("Scanner Publish was not accepted")
+            OmniScannerPublishResult(
+                count = json.optInt("count", 0),
+                group = json.optString("group", "scanner"),
+                otherGroupsPreserved = json.optBoolean("otherGroupsPreserved", false),
+                relaysUnchanged = json.optBoolean("relaysUnchanged", false),
+            )
+        }
+    }
+
+    suspend fun revokeScoped(panel: OmniPanel): Unit = withContext(Dispatchers.IO) {
+        val session = store.scopedSession(panel.id) ?: return@withContext
+        val response = try {
+            client.newCall(Request.Builder()
+                .url("${panel.baseUrl}/api/app/revoke")
+                .header("Authorization", "Bearer ${session.accessToken}")
+                .post("{}".toRequestBody(JSON))
+                .build()).execute()
+        } catch (error: Exception) {
+            throw networkFailure(error)
+        }
+        response.use {
+            if (!it.isSuccessful) throw OmniHubException("Scoped revoke refused: HTTP ${it.code}", it.code)
+        }
+        store.removeScopedSession(panel.id)
     }
 
     suspend fun sync(panel: OmniPanel): Int = withContext(Dispatchers.IO) {
@@ -211,6 +298,40 @@ class OmniHubRepository(context: Context) {
             )
         }
         health
+    }
+
+    private data class PairResponse(
+        val subscriptionUrl: String,
+        val displayName: String?,
+        val session: OmniScopedSession?,
+    )
+
+    private fun parsePairResponse(text: String): PairResponse {
+        val json = runCatching { JSONObject(text) }.getOrNull()
+        val subscription = json?.let { value ->
+            listOf("subscription_url", "subscriptionUrl", "url", "subscription")
+                .firstOrNull { key -> value.optString(key).startsWith("http") }
+                ?.let { value.optString(it) }
+        } ?: parseSubscriptionResponse(text) ?: throw OmniHubException("Pairing returned no subscription URL")
+        val token = json?.optString("access_token")?.takeIf { it.isNotBlank() }
+        val session = if (token == null) {
+            null
+        } else {
+            val scopedJson = json ?: throw OmniHubException("Scoped pairing returned no JSON session")
+            val userUuid = scopedJson.optString("user_uuid").takeIf { it.isNotBlank() }
+                ?: throw OmniHubException("Scoped pairing returned no bound panel user")
+            val expiresAt = scopedJson.optLong("expires_at", 0L)
+            if (expiresAt <= System.currentTimeMillis()) throw OmniHubException("Scoped pairing returned an expired token")
+            val scopes = buildSet {
+                scopedJson.optJSONArray("scopes")?.let { values ->
+                    for (index in 0 until values.length()) add(values.getString(index))
+                }
+            }
+            OmniScopedSession("", token, userUuid, scopes, expiresAt)
+        }
+        val responseName = json?.optString("name")?.takeIf { it.isNotBlank() }
+            ?: json?.optString("username")?.takeIf { it.isNotBlank() }
+        return PairResponse(subscription, responseName, session)
     }
 
     private fun parseSubscriptionResponse(text: String): String? {

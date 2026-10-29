@@ -34,7 +34,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.activity.viewModels
 import com.v2ray.ang.R
 import com.v2ray.ang.omni.lab.OmniEdgeProbeResult
 import com.v2ray.ang.ui.base.BaseComponentActivity
@@ -45,9 +45,10 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.ui.res.stringResource
 
 class OmniScannerActivity : BaseComponentActivity() {
+    private val model: OmniScannerViewModel by viewModels()
+
     @Composable
     override fun ScreenContent() {
-        val model: OmniScannerViewModel = viewModel()
         val state by model.state.collectAsStateWithLifecycle()
         OmniScannerScreen(
             state = state,
@@ -67,6 +68,9 @@ class OmniScannerActivity : BaseComponentActivity() {
             onUploadUrl = model::updateUploadUrl,
             onSpeed = model::runSpeedTest,
             onRetest = model::retestSavedThroughCore,
+            onPanel = model::selectPanel,
+            onPublish = model::publishBuilt,
+            onSync = model::syncSelectedPanel,
         )
     }
 }
@@ -90,6 +94,9 @@ fun OmniScannerScreen(
     onUploadUrl: (String) -> Unit,
     onSpeed: () -> Unit,
     onRetest: () -> Unit,
+    onPanel: (String) -> Unit,
+    onPublish: () -> Unit,
+    onSync: () -> Unit,
 ) {
     Scaffold(topBar = { AppTopBar(title = stringResource(R.string.omni_scanner_title), onBackClick = onBack) }) { innerPadding ->
         LazyColumn(
@@ -147,7 +154,7 @@ fun OmniScannerScreen(
                     state.message?.let { message ->
                         Text(
                             text = scannerMessageText(message, state.savedCount),
-                            color = if (message == OmniScannerMessage.SAVED) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                            color = if (message in setOf(OmniScannerMessage.SAVED, OmniScannerMessage.PUBLISHED, OmniScannerMessage.SYNCED)) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                         )
                     }
                 }
@@ -164,6 +171,9 @@ fun OmniScannerScreen(
             }
             if (state.built.isNotEmpty()) {
                 item { Text(stringResource(R.string.omni_scanner_built, state.built.size), modifier = Modifier.padding(horizontal = 16.dp)) }
+            }
+            item {
+                OmniScannerPanelSection(state, onPanel, onPublish, onSync)
             }
             item {
                 OmniSpeedLabSection(state, onDownloadUrl, onUploadUrl, onSpeed, onRetest)
@@ -274,6 +284,74 @@ private fun OmniScannerResultRow(result: OmniEdgeProbeResult, selected: Boolean,
     }
 }
 
+
+@Composable
+private fun OmniScannerPanelSection(
+    state: OmniScannerUiState,
+    onPanel: (String) -> Unit,
+    onPublish: () -> Unit,
+    onSync: () -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selected = state.panels.firstOrNull { it.id == state.selectedPanelId }
+    Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.omni_scanner_panel_title), style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.omni_scanner_panel_note), style = MaterialTheme.typography.bodySmall)
+            OutlinedButton(
+                onClick = { expanded = true },
+                enabled = state.panels.isNotEmpty() && !state.publishing && !state.syncing,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(selected?.name ?: stringResource(R.string.omni_scanner_panel_none))
+            }
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                state.panels.forEach { panel ->
+                    DropdownMenuItem(
+                        text = { Text(panel.name) },
+                        onClick = { onPanel(panel.id); expanded = false },
+                    )
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = onPublish,
+                    enabled = selected != null && state.built.isNotEmpty() && !state.publishing && !state.syncing,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    if (state.publishing) CircularProgressIndicator() else Text(stringResource(R.string.omni_scanner_publish))
+                }
+                OutlinedButton(
+                    onClick = onSync,
+                    enabled = selected != null && !state.publishing && !state.syncing,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    if (state.syncing) CircularProgressIndicator() else Text(stringResource(R.string.omni_scanner_hub_sync))
+                }
+            }
+            state.published?.let { result ->
+                Text(
+                    stringResource(R.string.omni_scanner_publish_result, result.count, result.group),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Text(
+                    stringResource(
+                        if (result.otherGroupsPreserved && result.relaysUnchanged) {
+                            R.string.omni_scanner_publish_preserved
+                        } else {
+                            R.string.omni_scanner_publish_unconfirmed
+                        },
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            if (state.message == OmniScannerMessage.SYNCED) {
+                Text(stringResource(R.string.omni_scanner_sync_result, state.syncedCount))
+            }
+        }
+    }
+}
+
 @Composable
 private fun scannerMessageText(message: OmniScannerMessage, savedCount: Int): String = when (message) {
     OmniScannerMessage.INVALID_INPUT -> stringResource(R.string.omni_scanner_invalid)
@@ -284,4 +362,10 @@ private fun scannerMessageText(message: OmniScannerMessage, savedCount: Int): St
     OmniScannerMessage.SAVE_FAILED -> stringResource(R.string.omni_scanner_save_failed)
     OmniScannerMessage.NO_SAVED -> stringResource(R.string.omni_scanner_no_saved)
     OmniScannerMessage.SPEED_FAILED -> stringResource(R.string.omni_scanner_speed_failed)
+    OmniScannerMessage.NO_PANEL -> stringResource(R.string.omni_scanner_no_panel)
+    OmniScannerMessage.PUBLISH_FAILED -> stringResource(R.string.omni_scanner_publish_failed)
+    OmniScannerMessage.PUBLISHED -> stringResource(R.string.omni_scanner_published)
+    OmniScannerMessage.SYNC_FAILED -> stringResource(R.string.omni_scanner_sync_failed)
+    OmniScannerMessage.SYNCED -> stringResource(R.string.omni_scanner_synced)
+    OmniScannerMessage.SCAN_FAILED -> stringResource(R.string.omni_scanner_scan_failed)
 }

@@ -28,7 +28,7 @@ import kotlinx.coroutines.withContext
 
 private const val MAX_SCAN_TARGETS = 100_000
 
-enum class OmniScannerMessage { INVALID_INPUT, NO_TEMPLATE, NO_SELECTION, BUILD_EMPTY, SAVED, SAVE_FAILED, NO_SAVED, SPEED_FAILED }
+enum class OmniScannerMessage { INVALID_INPUT, NO_TEMPLATE, NO_SELECTION, BUILD_EMPTY, SAVED, SAVE_FAILED, NO_SAVED, SPEED_FAILED, NO_PANEL, PUBLISH_FAILED, PUBLISHED, SYNC_FAILED, SYNCED, SCAN_FAILED }
 
 data class OmniScannerUiState(
     val targetsInput: String = "1.1.1.1",
@@ -59,11 +59,18 @@ data class OmniScannerUiState(
     val pingSamples: Int = 0,
     val pingSuccesses: Int = 0,
     val pingJitterMs: Long? = null,
+    val panels: List<OmniPanel> = emptyList(),
+    val selectedPanelId: String? = null,
+    val publishing: Boolean = false,
+    val published: OmniScannerPublishResult? = null,
+    val syncing: Boolean = false,
+    val syncedCount: Int = 0,
 )
 
 class OmniScannerViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = OmniScannerRepository()
     private val runner = OmniScanRunner()
+    private val hub = OmniHubRepository(application)
     private var pingWorker: RealPingWorkerService? = null
     private val mutableState = MutableStateFlow(OmniScannerUiState())
     val state: StateFlow<OmniScannerUiState> = mutableState.asStateFlow()
@@ -72,7 +79,15 @@ class OmniScannerViewModel(application: Application) : AndroidViewModel(applicat
     init {
         viewModelScope.launch {
             val templates = repository.templates()
-            mutableState.update { it.copy(templates = templates, selectedTemplateGuid = templates.firstOrNull()?.guid) }
+            val panels = runCatching { hub.panels() }.getOrDefault(emptyList())
+            mutableState.update {
+                it.copy(
+                    templates = templates,
+                    selectedTemplateGuid = templates.firstOrNull()?.guid,
+                    panels = panels,
+                    selectedPanelId = panels.firstOrNull()?.id,
+                )
+            }
         }
     }
 
@@ -83,6 +98,7 @@ class OmniScannerViewModel(application: Application) : AndroidViewModel(applicat
     fun updateDownloadUrl(value: String) = mutableState.update { it.copy(downloadUrlInput = value, message = null) }
     fun updateUploadUrl(value: String) = mutableState.update { it.copy(uploadUrlInput = value, message = null) }
     fun selectTemplate(guid: String) = mutableState.update { it.copy(selectedTemplateGuid = guid, message = null) }
+    fun selectPanel(panelId: String) = mutableState.update { it.copy(selectedPanelId = panelId, message = null) }
 
     fun startScan() {
         if (mutableState.value.scanning) return
@@ -91,9 +107,11 @@ class OmniScannerViewModel(application: Application) : AndroidViewModel(applicat
             val ports = runCatching { OmniTargetParser.parsePorts(current.portsInput) }.getOrElse {
                 mutableState.update { it.copy(message = OmniScannerMessage.INVALID_INPUT) }; return@launch
             }
-            val concurrency = OmniTargetParser.parseCount(current.concurrencyInput)?.toIntOrNull()
-            val maxTargets = OmniTargetParser.parseCount(current.maxTargetsInput)?.toIntOrNull()
-            if (concurrency == null || concurrency !in 1..128 || maxTargets == null || maxTargets !in 1..MAX_SCAN_TARGETS) {
+            val concurrency = OmniTargetParser.parseCount(current.concurrencyInput)
+                ?.takeIf { it in 1L..128L }?.toInt()
+            val maxTargets = OmniTargetParser.parseCount(current.maxTargetsInput)
+                ?.takeIf { it in 1L..MAX_SCAN_TARGETS.toLong() }?.toInt()
+            if (concurrency == null || maxTargets == null) {
                 mutableState.update { it.copy(message = OmniScannerMessage.INVALID_INPUT) }; return@launch
             }
             val plan = withContext(Dispatchers.Default) { OmniTargetParser.parse(current.targetsInput) }
@@ -112,10 +130,13 @@ class OmniScannerViewModel(application: Application) : AndroidViewModel(applicat
             }
             try {
                 runner.scan(plan, OmniScanOptions(ports, concurrency, maxTargets)).collect { result ->
-                    mutableState.update { state ->
-                        state.copy(results = (state.results + result).rankByEdgeQuality())
-                    }
+                    val ranked = withContext(Dispatchers.Default) { (mutableState.value.results + result).rankByEdgeQuality() }
+                    mutableState.update { state -> state.copy(results = ranked) }
                 }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                mutableState.update { it.copy(message = OmniScannerMessage.SCAN_FAILED) }
             } finally {
                 mutableState.update { it.copy(scanning = false) }
             }
@@ -149,21 +170,75 @@ class OmniScannerViewModel(application: Application) : AndroidViewModel(applicat
         }
         viewModelScope.launch {
             mutableState.update { it.copy(building = true, message = null) }
-            val built = withContext(Dispatchers.Default) { OmniEndpointConfigFactory.buildBatch(template, selected, OmniBuildOptions()) }
-            mutableState.update { it.copy(building = false, built = built, message = if (built.isEmpty()) OmniScannerMessage.BUILD_EMPTY else null) }
+            try {
+                val built = withContext(Dispatchers.Default) { OmniEndpointConfigFactory.buildBatch(template, selected, OmniBuildOptions()) }
+                mutableState.update { it.copy(building = false, built = built, message = if (built.isEmpty()) OmniScannerMessage.BUILD_EMPTY else null) }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                mutableState.update { it.copy(building = false, built = emptyList(), message = OmniScannerMessage.BUILD_EMPTY) }
+            }
         }
     }
 
     fun saveBuilt() {
+        if (mutableState.value.saving) return
         val built = mutableState.value.built
         if (built.isEmpty()) {
             mutableState.update { it.copy(message = OmniScannerMessage.BUILD_EMPTY) }; return
         }
         viewModelScope.launch {
             mutableState.update { it.copy(saving = true, message = null) }
-            runCatching { repository.saveBuilt(built) }
-                .onSuccess { ids -> mutableState.update { it.copy(saving = false, savedCount = ids.size, savedGuids = ids, message = OmniScannerMessage.SAVED) } }
-                .onFailure { mutableState.update { it.copy(saving = false, message = OmniScannerMessage.SAVE_FAILED) } }
+            try {
+                val ids = repository.saveBuilt(built)
+                mutableState.update { it.copy(saving = false, savedCount = ids.size, savedGuids = ids, message = OmniScannerMessage.SAVED) }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                mutableState.update { it.copy(saving = false, message = OmniScannerMessage.SAVE_FAILED) }
+            }
+        }
+    }
+
+    fun publishBuilt() {
+        val current = mutableState.value
+        val panel = current.panels.firstOrNull { it.id == current.selectedPanelId }
+        if (panel == null) {
+            mutableState.update { it.copy(message = OmniScannerMessage.NO_PANEL) }; return
+        }
+        if (current.built.isEmpty()) {
+            mutableState.update { it.copy(message = OmniScannerMessage.BUILD_EMPTY) }; return
+        }
+        if (current.publishing) return
+        viewModelScope.launch {
+            mutableState.update { it.copy(publishing = true, published = null, message = null) }
+            try {
+                val result = hub.publishScannerPack(panel, current.built.map { it.profile })
+                mutableState.update { it.copy(publishing = false, published = result, message = OmniScannerMessage.PUBLISHED) }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                mutableState.update { it.copy(publishing = false, message = OmniScannerMessage.PUBLISH_FAILED) }
+            }
+        }
+    }
+
+    fun syncSelectedPanel() {
+        val panel = mutableState.value.panels.firstOrNull { it.id == mutableState.value.selectedPanelId }
+        if (panel == null) {
+            mutableState.update { it.copy(message = OmniScannerMessage.NO_PANEL) }; return
+        }
+        if (mutableState.value.syncing) return
+        viewModelScope.launch {
+            mutableState.update { it.copy(syncing = true, message = null) }
+            try {
+                val count = hub.sync(panel)
+                mutableState.update { it.copy(syncing = false, syncedCount = count, message = OmniScannerMessage.SYNCED) }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                mutableState.update { it.copy(syncing = false, message = OmniScannerMessage.SYNC_FAILED) }
+            }
         }
     }
 

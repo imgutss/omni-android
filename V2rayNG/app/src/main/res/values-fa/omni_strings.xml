@@ -114,4 +114,32 @@
     <string name="omni_scanner_ping_metrics">پینگ HTTP با core: %1$d/%2$d موفق · median %3$s ms · jitter %4$s ms</string>
     <string name="omni_scanner_no_saved">ابتدا کانفیگ ساخته‌شده را ذخیره کن؛ Speed Lab همان کانفیگ ذخیره‌شده را تست می‌کند.</string>
     <string name="omni_scanner_speed_failed">تست تونل بومی ناموفق بود؛ هیچ سرعت یا connectivityای اعلام نمی‌شود.</string>
+
+    <string name="omni_scanner_panel_title">انتشار در پنل همان کاربر</string>
+    <string name="omni_scanner_panel_note">انتشار فقط با دسترسی محدود Scanner Pack همین دستگاه انجام می‌شود. ذخیره محلی و Hub Sync دو عمل جدا هستند.</string>
+    <string name="omni_scanner_panel_none">ابتدا پنل را در Hub جفت کن</string>
+    <string name="omni_scanner_publish">انتشار Scanner Pack</string>
+    <string name="omni_scanner_hub_sync">همگام‌سازی Hub</string>
+    <string name="omni_scanner_publish_result">%1$d کانفیگ در گروه %2$s منتشر شد.</string>
+    <string name="omni_scanner_publish_preserved">پنل حفظ گروه‌های دیگر و relayها را تأیید کرد.</string>
+    <string name="omni_scanner_publish_unconfirmed">پاسخ پنل حفظ موارد دیگر را تأیید نکرد؛ پیش از تلاش دوباره پنل را بررسی کن.</string>
+    <string name="omni_scanner_sync_result">همگام‌سازی Hub تعداد %1$d کانفیگ وارد کرد.</string>
+    <string name="omni_scanner_no_panel">ابتدا پنل خودت را در Omni Hub وصل و جفت کن.</string>
+    <string name="omni_scanner_publish_failed">انتشار Scanner Pack ناموفق بود؛ هیچ تغییری در پنل اعلام نمی‌شود.</string>
+    <string name="omni_scanner_published">Scanner Pack برای کاربر متصلِ پنل منتشر شد.</string>
+    <string name="omni_scanner_sync_failed">همگام‌سازی Hub ناموفق بود؛ همگام‌سازی موفقی اعلام نمی‌شود.</string>
+    <string name="omni_scanner_synced">همگام‌سازی Hub انجام شد.</string>
+    <string name="omni_scanner_scan_failed">اسکن با خطا متوقف شد؛ نتایج جزئی تا probe بعدی تست‌شده محسوب نمی‌شوند.</string>
+    <string name="omni_hub_pair_qr">اتصال با QR</string>
+    <string name="omni_hub_pair_qr_hint">QR یک‌بارمصرف پنل خودت را اسکن کن یا محتوای آن را در کادر بچسبان.</string>
+    <string name="omni_hub_pair_payload">کد اتصال یا محتوای QR</string>
+    <string name="omni_hub_scoped_title">دسترسی محدود دستگاه</string>
+    <string name="omni_hub_scoped_none">نشست محدود فعالی برای دستگاه وجود ندارد</string>
+    <string name="omni_hub_scoped_capabilities">قابلیت‌ها: %1$s</string>
+    <string name="omni_hub_scope_templates">خواندن template</string>
+    <string name="omni_hub_scope_device">گزارش دستگاه</string>
+    <string name="omni_hub_scope_scanner">انتشار Scanner Pack</string>
+    <string name="omni_hub_revoke">لغو دسترسی دستگاه</string>
+    <string name="omni_hub_revoked">دسترسی محدود دستگاه لغو شد</string>
+    <string name="omni_hub_revoke_failed">لغو دسترسی دستگاه ناموفق بود؛ توکن محلی حفظ شد.</string>
 </resources>

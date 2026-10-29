@@ -37,21 +37,36 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.v2ray.ang.R
-import com.v2ray.ang.ui.base.BaseComponentActivity
+import com.v2ray.ang.ui.base.HelperBaseComponentActivity
 import com.v2ray.ang.ui.compose.AppTopBar
 import kotlinx.coroutines.launch
 import java.text.DateFormat
 import java.util.Date
 
-class OmniHubActivity : BaseComponentActivity() {
+class OmniHubActivity : HelperBaseComponentActivity() {
     @Composable
     override fun ScreenContent() {
-        OmniHubScreen(onBack = { finish() })
+        var scannedPair by remember { mutableStateOf<String?>(null) }
+        OmniHubScreen(
+            onBack = { finish() },
+            scannedPair = scannedPair,
+            onScanPair = {
+                launchQRCodeScanner { result ->
+                    if (result != null) scannedPair = result
+                }
+            },
+            onScannedPairConsumed = { scannedPair = null },
+        )
     }
 }
 
 @Composable
-fun OmniHubScreen(onBack: () -> Unit) {
+fun OmniHubScreen(
+    onBack: () -> Unit,
+    scannedPair: String? = null,
+    onScanPair: () -> Unit = {},
+    onScannedPairConsumed: () -> Unit = {},
+) {
     val context = LocalContext.current
     val repository = remember { OmniHubRepository(context) }
     val scope = rememberCoroutineScope()
@@ -60,10 +75,26 @@ fun OmniHubScreen(onBack: () -> Unit) {
     var message by remember { mutableStateOf<String?>(null) }
     var showAdd by remember { mutableStateOf(false) }
     var showPair by remember { mutableStateOf(false) }
+    var pairInitialCode by remember { mutableStateOf("") }
     var removeTarget by remember { mutableStateOf<OmniPanel?>(null) }
+    var scopedScopes by remember { mutableStateOf<Map<String, Set<String>>>(emptyMap()) }
 
     suspend fun reload() {
-        panels = repository.panels()
+        val loadedPanels = repository.panels()
+        val loadedScopes = mutableMapOf<String, Set<String>>()
+        for (panel in loadedPanels) {
+            loadedScopes[panel.id] = repository.scopedScopes(panel)
+        }
+        panels = loadedPanels
+        scopedScopes = loadedScopes
+    }
+
+    LaunchedEffect(scannedPair) {
+        if (scannedPair != null) {
+            pairInitialCode = scannedPair
+            showPair = true
+            onScannedPairConsumed()
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -108,9 +139,14 @@ fun OmniHubScreen(onBack: () -> Unit) {
                     Button(onClick = { showAdd = true }, enabled = !busy, modifier = Modifier.weight(1f)) {
                         Text(stringResource(R.string.omni_hub_add_subscription))
                     }
-                    OutlinedButton(onClick = { showPair = true }, enabled = !busy, modifier = Modifier.weight(1f)) {
+                    OutlinedButton(onClick = { pairInitialCode = ""; showPair = true }, enabled = !busy, modifier = Modifier.weight(1f)) {
                         Text(stringResource(R.string.omni_hub_pair_code))
                     }
+                }
+            }
+            item {
+                OutlinedButton(onClick = onScanPair, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.omni_hub_pair_qr))
                 }
             }
             item {
@@ -140,6 +176,7 @@ fun OmniHubScreen(onBack: () -> Unit) {
                 OmniPanelCard(
                     panel = panel,
                     busy = busy,
+                    scopes = scopedScopes[panel.id].orEmpty(),
                     onSync = {
                         runTask {
                             val count = repository.sync(panel)
@@ -153,6 +190,12 @@ fun OmniHubScreen(onBack: () -> Unit) {
                         }
                     },
                     onRemove = { removeTarget = panel },
+                    onRevoke = {
+                        runTask {
+                            repository.revokeScoped(panel)
+                            message = context.getString(R.string.omni_hub_revoked)
+                        }
+                    },
                     onDoctor = {
                         context.startActivity(
                             Intent(context, OmniDoctorActivity::class.java)
@@ -180,6 +223,7 @@ fun OmniHubScreen(onBack: () -> Unit) {
     if (showPair) {
         OmniPairDialog(
             busy = busy,
+            initialCode = pairInitialCode,
             onDismiss = { showPair = false },
             onConfirm = { base, code, name, insecure ->
                 showPair = false
@@ -221,9 +265,11 @@ fun OmniHubScreen(onBack: () -> Unit) {
 private fun OmniPanelCard(
     panel: OmniPanel,
     busy: Boolean,
+    scopes: Set<String>,
     onSync: () -> Unit,
     onCheck: () -> Unit,
     onRemove: () -> Unit,
+    onRevoke: () -> Unit,
     onDoctor: () -> Unit,
 ) {
     val status = runCatching { OmniPanelStatus.valueOf(panel.lastStatus) }.getOrDefault(OmniPanelStatus.INVALID)
@@ -244,6 +290,18 @@ private fun OmniPanelCard(
                 } else stringResource(R.string.omni_hub_not_synced),
                 style = MaterialTheme.typography.bodySmall,
             )
+            Text(stringResource(R.string.omni_hub_scoped_title), style = MaterialTheme.typography.labelLarge)
+            if (scopes.isEmpty()) {
+                Text(stringResource(R.string.omni_hub_scoped_none), style = MaterialTheme.typography.bodySmall)
+            } else {
+                val capabilities = buildList {
+                    if ("templates:read" in scopes) add(stringResource(R.string.omni_hub_scope_templates))
+                    if ("device:report" in scopes) add(stringResource(R.string.omni_hub_scope_device))
+                    if ("scanner:publish" in scopes) add(stringResource(R.string.omni_hub_scope_scanner))
+                }
+                Text(stringResource(R.string.omni_hub_scoped_capabilities, capabilities.joinToString()), style = MaterialTheme.typography.bodySmall)
+                TextButton(onClick = onRevoke, enabled = !busy) { Text(stringResource(R.string.omni_hub_revoke)) }
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 TextButton(onClick = onSync, enabled = !busy) { Text(stringResource(R.string.omni_hub_sync)) }
                 TextButton(onClick = onCheck, enabled = !busy) { Text(stringResource(R.string.omni_hub_check)) }
@@ -304,11 +362,12 @@ private fun OmniAddSubscriptionDialog(
 @Composable
 private fun OmniPairDialog(
     busy: Boolean,
+    initialCode: String,
     onDismiss: () -> Unit,
     onConfirm: (String, String, String, Boolean) -> Unit,
 ) {
     var base by remember { mutableStateOf("") }
-    var code by remember { mutableStateOf("") }
+    var code by remember(initialCode) { mutableStateOf(initialCode) }
     var name by remember { mutableStateOf("") }
     var insecure by remember { mutableStateOf(false) }
     AlertDialog(
@@ -317,8 +376,9 @@ private fun OmniPairDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(R.string.omni_hub_pair_note), style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(R.string.omni_hub_pair_qr_hint), style = MaterialTheme.typography.bodySmall)
                 OutlinedTextField(value = base, onValueChange = { base = it }, label = { Text(stringResource(R.string.omni_hub_base_url)) }, singleLine = true)
-                OutlinedTextField(value = code, onValueChange = { code = it }, label = { Text(stringResource(R.string.omni_hub_pairing_code)) }, singleLine = true)
+                OutlinedTextField(value = code, onValueChange = { code = it }, label = { Text(stringResource(R.string.omni_hub_pair_payload)) }, singleLine = true)
                 OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text(stringResource(R.string.omni_hub_name)) }, singleLine = true)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = insecure, onCheckedChange = { insecure = it })
@@ -327,7 +387,7 @@ private fun OmniPairDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(base, code, name, insecure) }, enabled = !busy && base.isNotBlank() && code.isNotBlank()) {
+            TextButton(onClick = { onConfirm(base, code, name, insecure) }, enabled = !busy && code.isNotBlank() && (base.isNotBlank() || code.trim().startsWith("http", ignoreCase = true))) {
                 Text(stringResource(R.string.omni_hub_pair))
             }
         },
