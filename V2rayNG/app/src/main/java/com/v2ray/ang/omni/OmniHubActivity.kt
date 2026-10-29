@@ -1,6 +1,7 @@
 package com.v2ray.ang.omni
 
 import android.content.Intent
+import android.os.Build
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -36,6 +37,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.v2ray.ang.BuildConfig
 import com.v2ray.ang.R
 import com.v2ray.ang.ui.base.HelperBaseComponentActivity
 import com.v2ray.ang.ui.compose.AppTopBar
@@ -196,6 +198,18 @@ fun OmniHubScreen(
                             message = context.getString(R.string.omni_hub_revoked)
                         }
                     },
+                    onReadTemplates = {
+                        runTask {
+                            val templates = repository.readScopedTemplates(panel)
+                            message = context.getString(R.string.omni_hub_templates_read, templates.uriCount, templates.groups.size)
+                        }
+                    },
+                    onReportDevice = {
+                        runTask {
+                            repository.reportDevice(panel, BuildConfig.VERSION_NAME, Build.MODEL, Build.VERSION.RELEASE)
+                            message = context.getString(R.string.omni_hub_device_reported)
+                        }
+                    },
                     onDoctor = {
                         context.startActivity(
                             Intent(context, OmniDoctorActivity::class.java)
@@ -270,6 +284,8 @@ private fun OmniPanelCard(
     onCheck: () -> Unit,
     onRemove: () -> Unit,
     onRevoke: () -> Unit,
+    onReadTemplates: () -> Unit,
+    onReportDevice: () -> Unit,
     onDoctor: () -> Unit,
 ) {
     val status = runCatching { OmniPanelStatus.valueOf(panel.lastStatus) }.getOrDefault(OmniPanelStatus.INVALID)
@@ -301,6 +317,13 @@ private fun OmniPanelCard(
                 }
                 Text(stringResource(R.string.omni_hub_scoped_capabilities, capabilities.joinToString()), style = MaterialTheme.typography.bodySmall)
                 TextButton(onClick = onRevoke, enabled = !busy) { Text(stringResource(R.string.omni_hub_revoke)) }
+                if ("templates:read" in scopes) {
+                    TextButton(onClick = onReadTemplates, enabled = !busy) { Text(stringResource(R.string.omni_hub_read_templates)) }
+                }
+                if ("device:report" in scopes) {
+                    Text(stringResource(R.string.omni_hub_device_report_note), style = MaterialTheme.typography.bodySmall)
+                    TextButton(onClick = onReportDevice, enabled = !busy) { Text(stringResource(R.string.omni_hub_report_device)) }
+                }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 TextButton(onClick = onSync, enabled = !busy) { Text(stringResource(R.string.omni_hub_sync)) }

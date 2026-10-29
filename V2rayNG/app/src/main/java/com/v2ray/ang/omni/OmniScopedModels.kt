@@ -19,3 +19,17 @@ data class OmniScannerPublishResult(
     val otherGroupsPreserved: Boolean,
     val relaysUnchanged: Boolean,
 )
+
+data class OmniScopedTemplateGroup(
+    val source: String,
+    val uris: List<String>,
+)
+
+data class OmniScopedTemplates(
+    val userUuid: String,
+    val username: String,
+    val subscriptionUrl: String,
+    val groups: List<OmniScopedTemplateGroup>,
+) {
+    val uriCount: Int get() = groups.sumOf { it.uris.size }
+}

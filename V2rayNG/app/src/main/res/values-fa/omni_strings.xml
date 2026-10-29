@@ -142,4 +142,10 @@
     <string name="omni_hub_revoke">لغو دسترسی دستگاه</string>
     <string name="omni_hub_revoked">دسترسی محدود دستگاه لغو شد</string>
     <string name="omni_hub_revoke_failed">لغو دسترسی دستگاه ناموفق بود؛ توکن محلی حفظ شد.</string>
+
+    <string name="omni_hub_read_templates">خواندن templateهای پنل</string>
+    <string name="omni_hub_templates_read">%1$d کانفیگ template در %2$d گروه خوانده شد؛ هیچ موردی import نشد.</string>
+    <string name="omni_hub_report_device">ارسال گزارش دستگاه</string>
+    <string name="omni_hub_device_reported">گزارش دستگاه فقط با فرادادهٔ برنامه و سیستم‌عامل ارسال شد.</string>
+    <string name="omni_hub_device_report_note">گزارش دستگاه فقط نسخهٔ برنامه، مدل دستگاه و نسخهٔ اندروید را دارد؛ بدون کانفیگ یا توکن.</string>
 </resources>

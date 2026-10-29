@@ -142,4 +142,10 @@
     <string name="omni_hub_revoke">Revoke device access</string>
     <string name="omni_hub_revoked">Scoped device access revoked</string>
     <string name="omni_hub_revoke_failed">Device access revocation failed; local token was kept.</string>
+
+    <string name="omni_hub_read_templates">Read panel templates</string>
+    <string name="omni_hub_templates_read">Read %1$d template configurations in %2$d groups. Nothing was imported.</string>
+    <string name="omni_hub_report_device">Send device report</string>
+    <string name="omni_hub_device_reported">Device report sent with app and OS metadata only.</string>
+    <string name="omni_hub_device_report_note">Device report contains app version, device model and Android version; no configurations or tokens.</string>
 </resources>

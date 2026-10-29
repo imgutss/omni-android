@@ -23,6 +23,21 @@ class OmniScopedModelsTest {
     }
 
     @Test
+    fun templateCountIsReadOnlyMetadata() {
+        val templates = OmniScopedTemplates(
+            userUuid = "user-1",
+            username = "ali",
+            subscriptionUrl = "https://panel.example/s/token",
+            groups = listOf(
+                OmniScopedTemplateGroup("manual", listOf("vless://one", "vmess://two")),
+                OmniScopedTemplateGroup("scanner", listOf("trojan://three")),
+            ),
+        )
+        assertTrue(templates.uriCount == 3)
+        assertTrue(templates.groups.map { it.source } == listOf("manual", "scanner"))
+    }
+
+    @Test
     fun blankTokenOrUserCannotAuthorize() {
         assertFalse(session.copy(accessToken = "").validAt(1_000L))
         assertFalse(session.copy(userUuid = "").validAt(1_000L))

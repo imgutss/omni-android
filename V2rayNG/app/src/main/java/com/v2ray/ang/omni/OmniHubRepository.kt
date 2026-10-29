@@ -177,11 +177,7 @@ class OmniHubRepository(context: Context) {
     /** Publishes only through the token-bound Scanner Pack route; no administrator fallback exists. */
     suspend fun publishScannerPack(panel: OmniPanel, profiles: List<ProfileItem>): OmniScannerPublishResult = withContext(Dispatchers.IO) {
         require(profiles.size <= 2000) { "Up to 2000 configurations are allowed" }
-        val session = store.scopedSession(panel.id)
-            ?: throw OmniHubException("Pair this panel with a scoped device code first")
-        if (!session.hasScope("scanner:publish", System.currentTimeMillis())) {
-            throw OmniHubException("This paired device has no active Scanner Publish capability")
-        }
+        val session = requireScoped(panel, "scanner:publish")
         val uris = profiles.map { profile ->
             when (profile.configType) {
                 EConfigType.VLESS -> VlessFmt.toUri(profile)
@@ -230,6 +226,92 @@ class OmniHubRepository(context: Context) {
             if (!it.isSuccessful) throw OmniHubException("Scoped revoke refused: HTTP ${it.code}", it.code)
         }
         store.removeScopedSession(panel.id)
+    }
+
+    /** Reads panel templates without importing them or changing the local subscription. */
+    suspend fun readScopedTemplates(panel: OmniPanel): OmniScopedTemplates = withContext(Dispatchers.IO) {
+        val session = requireScoped(panel, "templates:read")
+        val response = try {
+            client.newCall(Request.Builder()
+                .url("${panel.baseUrl}/api/app/templates")
+                .header("Accept", "application/json")
+                .header("Authorization", "Bearer ${session.accessToken}")
+                .get()
+                .build()).execute()
+        } catch (error: Exception) {
+            throw networkFailure(error)
+        }
+        response.use {
+            val text = it.body.string()
+            if (!it.isSuccessful) throw OmniHubException("Template read refused: HTTP ${it.code}", it.code)
+            val json = runCatching { JSONObject(text) }.getOrElse { throw OmniHubException("Template read returned invalid JSON") }
+            if (!json.optBoolean("ok", false)) throw OmniHubException("Template read was not accepted")
+            val userUuid = json.optString("user_uuid")
+            if (userUuid != session.userUuid) throw OmniHubException("Template response belongs to a different panel user")
+            val subscriptionUrl = json.optString("subscription_url")
+            val parsedSubscription = validateUrl(subscriptionUrl, panel.allowInsecure)
+            if (originOf(parsedSubscription) != originOf(validateUrl(panel.baseUrl, panel.allowInsecure))) {
+                throw OmniHubException("Template response returned a different panel subscription")
+            }
+            val array = json.optJSONArray("templates") ?: JSONArray()
+            if (array.length() > 128) throw OmniHubException("Template response has too many groups")
+            val groups = buildList {
+                for (index in 0 until array.length()) {
+                    val item = array.optJSONObject(index) ?: throw OmniHubException("Template response contains an invalid group")
+                    val source = item.optString("source").trim()
+                    if (source.isEmpty()) throw OmniHubException("Template response contains an unnamed group")
+                    val uriArray = item.optJSONArray("uris") ?: JSONArray()
+                    if (uriArray.length() > 2000) throw OmniHubException("Template group has too many configurations")
+                    val uris = buildList {
+                        for (uriIndex in 0 until uriArray.length()) {
+                            val uri = uriArray.optString(uriIndex)
+                            if (uri.isBlank() || uri.length > 32_768) throw OmniHubException("Template response contains an invalid configuration")
+                            add(uri)
+                        }
+                    }
+                    add(OmniScopedTemplateGroup(source, uris))
+                }
+            }
+            OmniScopedTemplates(userUuid, json.optString("username"), subscriptionUrl, groups)
+        }
+    }
+
+    /** Sends only explicit app/device metadata; configurations, URLs and tokens are never included. */
+    suspend fun reportDevice(panel: OmniPanel, appVersion: String, device: String, androidVersion: String): Unit = withContext(Dispatchers.IO) {
+        val session = requireScoped(panel, "device:report")
+        if (appVersion.length > 40 || device.length > 80 || androidVersion.length > 20) {
+            throw OmniHubException("Device report metadata is too long")
+        }
+        val body = JSONObject()
+            .put("app_version", appVersion)
+            .put("device", device)
+            .put("android", androidVersion)
+            .toString().toRequestBody(JSON)
+        val response = try {
+            client.newCall(Request.Builder()
+                .url("${panel.baseUrl}/api/app/device-report")
+                .header("Accept", "application/json")
+                .header("Authorization", "Bearer ${session.accessToken}")
+                .post(body)
+                .build()).execute()
+        } catch (error: Exception) {
+            throw networkFailure(error)
+        }
+        response.use {
+            val text = it.body.string()
+            if (!it.isSuccessful) throw OmniHubException("Device report refused: HTTP ${it.code}", it.code)
+            val json = runCatching { JSONObject(text) }.getOrElse { throw OmniHubException("Device report returned invalid JSON") }
+            if (!json.optBoolean("ok", false)) throw OmniHubException("Device report was not accepted")
+        }
+    }
+
+    private fun requireScoped(panel: OmniPanel, scope: String): OmniScopedSession {
+        val session = store.scopedSession(panel.id)
+            ?: throw OmniHubException("Pair this panel with a scoped device code first")
+        if (!session.hasScope(scope, System.currentTimeMillis())) {
+            throw OmniHubException("This paired device has no active $scope capability")
+        }
+        return session
     }
 
     suspend fun sync(panel: OmniPanel): Int = withContext(Dispatchers.IO) {
