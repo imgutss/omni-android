@@ -50,6 +50,7 @@ class OmniTransferLabTest {
         )
         assertFalse(result.success)
         assertEquals(0L, result.dataUsedBytes)
+        assertEquals(0, result.requestedUploadBytes)
     }
 
     private class FakeRuntime : OmniCoreRuntime {

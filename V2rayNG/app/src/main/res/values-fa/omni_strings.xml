@@ -197,4 +197,24 @@
     <string name="omni_sync_no_detail">بدون جزئیات</string>
     <string name="omni_sync_result_success">سینک موفق: %1$d کانفیگ دریافت شد.</string>
     <string name="omni_sync_check_result_success">بررسی سلامت موفق: %1$s</string>
+
+    <string name="omni_speed_title">آزمایشگاه سرعت و پینگ اومنی</string>
+    <string name="omni_speed_subtitle">هر پروفایل ذخیره‌شده را با core بومی واقعی تست کن. پینگ مستقیم/core، TTFB تونل و throughput بایت‌شماری‌شده سه سنجش جدا هستند.</string>
+    <string name="omni_speed_selected_profile">انتخاب‌شده: %1$s · %2$s</string>
+    <string name="omni_speed_download_size">بایت دانلود</string>
+    <string name="omni_speed_upload_size">بایت آپلود</string>
+    <string name="omni_speed_size_note">هر اندازه بین ۱ KiB تا ۱۶ MiB است. آپلود فقط با URL آپلود انجام می‌شود؛ مصرف داده همان بایت‌های واقعی خوانده/نوشته‌شده است.</string>
+    <string name="omni_speed_run">اجرای تست تونل</string>
+    <string name="omni_speed_ping">پینگ واقعی</string>
+    <string name="omni_speed_results">شواهد سنجش</string>
+    <string name="omni_speed_separate_metrics">TTFB تأخیر دریافت header از تونل است. throughput از بایت و زمان به دست می‌آید و از پینگ edge حدس زده نمی‌شود.</string>
+    <string name="omni_speed_error">شواهد: %1$s</string>
+    <string name="omni_speed_ping_untested">پینگ core: تست نشده</string>
+    <string name="omni_speed_no_transfer">انتقال تونل: تست نشده</string>
+    <string name="omni_speed_choose_profile">یک پروفایل ذخیره‌شده انتخاب کن</string>
+    <string name="omni_speed_load_failed">پروفایل‌های ذخیره‌شده بارگذاری نشدند.</string>
+    <string name="omni_speed_no_profile">ابتدا یک پروفایل ذخیره‌شده انتخاب کن.</string>
+    <string name="omni_speed_invalid_input">URLهای HTTP(S) و اندازه‌های ۱۰۲۴ تا ۱۶۷۷۷۲۱۶ بایت را بررسی کن.</string>
+    <string name="omni_speed_failed">تست واقعی تونل شکست خورد یا این پروفایل native exit ندارد؛ هیچ throughputای اعلام نمی‌شود.</string>
+    <string name="omni_speed_ping_failed">پینگ واقعی نتیجه‌ای نداشت؛ هیچ latencyای اعلام نمی‌شود.</string>
 </resources>

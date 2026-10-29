@@ -53,6 +53,7 @@ import com.v2ray.ang.omni.OmniConfigManagerActivity
 import com.v2ray.ang.omni.OmniHubActivity
 import com.v2ray.ang.omni.OmniScannerActivity
 import com.v2ray.ang.omni.OmniSyncCenterActivity
+import com.v2ray.ang.omni.OmniSpeedLabActivity
 import com.v2ray.ang.ui.userasset.UserAssetActivity
 import com.v2ray.ang.util.LogUtil
 import com.v2ray.ang.util.Utils
@@ -174,6 +175,7 @@ class MainActivity : HelperBaseComponentActivity() {
             MainDestination.OmniScanner -> Intent(this, OmniScannerActivity::class.java)
             MainDestination.OmniConfigManager -> Intent(this, OmniConfigManagerActivity::class.java)
             MainDestination.OmniSyncCenter -> Intent(this, OmniSyncCenterActivity::class.java)
+            MainDestination.OmniSpeedLab -> Intent(this, OmniSpeedLabActivity::class.java)
         }
         settingsActivityLauncher.launch(intent)
     }

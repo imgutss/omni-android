@@ -92,9 +92,9 @@ class OmniTransferLab(
         val config = try {
             configurationFactory(originalConfig)
         } catch (error: Exception) {
-            return@withContext OmniTransferResult(false, requestedUploadBytes = uploadBytes, downloadLimitBytes = downloadLimitBytes, error = error.message)
+            return@withContext OmniTransferResult(false, requestedUploadBytes = if (uploadUrl == null) 0 else uploadBytes, downloadLimitBytes = downloadLimitBytes, error = error.message)
         }
-        if (!runtime.start(config)) return@withContext OmniTransferResult(false, requestedUploadBytes = uploadBytes, downloadLimitBytes = downloadLimitBytes, error = "Core did not start")
+        if (!runtime.start(config)) return@withContext OmniTransferResult(false, requestedUploadBytes = if (uploadUrl == null) 0 else uploadBytes, downloadLimitBytes = downloadLimitBytes, error = "Core did not start")
         var downloaded = 0L
         var uploaded = 0L
         var downloadDuration = 0L
@@ -127,12 +127,12 @@ class OmniTransferLab(
                 }
                 uploadDuration = elapsedMs(uploadStarted).coerceAtLeast(1L)
             }
-            OmniTransferResult(true, downloaded, uploaded, downloadDuration, uploadDuration, uploadBytes, downloadLimitBytes)
+            OmniTransferResult(true, downloaded, uploaded, downloadDuration, uploadDuration, if (uploadUrl == null) 0 else uploadBytes, downloadLimitBytes)
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Exception) {
             uploaded = countingBody?.bytesWritten ?: uploaded
-            OmniTransferResult(false, downloaded, uploaded, downloadDuration, uploadDuration, uploadBytes, downloadLimitBytes, error.message ?: error.javaClass.simpleName)
+            OmniTransferResult(false, downloaded, uploaded, downloadDuration, uploadDuration, if (uploadUrl == null) 0 else uploadBytes, downloadLimitBytes, error.message ?: error.javaClass.simpleName)
         } finally {
             runtime.stop()
         }

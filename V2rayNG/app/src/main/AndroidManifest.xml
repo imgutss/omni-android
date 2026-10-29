@@ -154,6 +154,10 @@
             android:windowSoftInputMode="stateUnchanged|adjustResize"
             android:exported="false" />
         <activity
+            android:name=".omni.OmniSpeedLabActivity"
+            android:windowSoftInputMode="stateUnchanged|adjustResize"
+            android:exported="false" />
+        <activity
             android:name=".ui.perappproxy.PerAppProxyActivity"
             android:exported="false" />
         <activity

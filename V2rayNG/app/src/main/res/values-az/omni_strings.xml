@@ -122,4 +122,24 @@
     <string name="omni_sync_no_detail">no detail</string>
     <string name="omni_sync_result_success">Sync succeeded: %1$d configurations received.</string>
     <string name="omni_sync_check_result_success">Health check succeeded: %1$s</string>
+
+    <string name="omni_speed_title">Omni Speed &amp; Ping Lab</string>
+    <string name="omni_speed_subtitle">Test any saved profile through the real native core. Direct/core ping, tunnel TTFB and byte-counted throughput are separate measurements.</string>
+    <string name="omni_speed_selected_profile">Selected: %1$s · %2$s</string>
+    <string name="omni_speed_download_size">Download bytes</string>
+    <string name="omni_speed_upload_size">Upload bytes</string>
+    <string name="omni_speed_size_note">Each size is bounded to 1 KiB–16 MiB. Upload is sent only when an upload URL is supplied; measured data is actual bytes read or written.</string>
+    <string name="omni_speed_run">Run tunnel test</string>
+    <string name="omni_speed_ping">Real ping</string>
+    <string name="omni_speed_results">Measurement evidence</string>
+    <string name="omni_speed_separate_metrics">TTFB is header latency through the tunnel. Throughput uses bytes and elapsed time; neither is inferred from edge ping.</string>
+    <string name="omni_speed_error">Evidence: %1$s</string>
+    <string name="omni_speed_ping_untested">Core ping: untested</string>
+    <string name="omni_speed_no_transfer">Tunnel transfer: untested</string>
+    <string name="omni_speed_choose_profile">Choose a saved profile</string>
+    <string name="omni_speed_load_failed">Saved profiles could not be loaded.</string>
+    <string name="omni_speed_no_profile">Choose a saved profile first.</string>
+    <string name="omni_speed_invalid_input">Check HTTP(S) URLs and sizes from 1024 to 16777216 bytes.</string>
+    <string name="omni_speed_failed">The real tunnel test failed or this profile cannot create a native exit; no throughput is claimed.</string>
+    <string name="omni_speed_ping_failed">Real ping returned no result; no latency is claimed.</string>
 </resources>
