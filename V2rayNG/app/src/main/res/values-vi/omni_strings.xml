@@ -212,4 +212,33 @@
     <string name="omni_dns_no_provider">Select at least one resolver.</string>
     <string name="omni_dns_complete">All selected resolvers returned a DNS response.</string>
     <string name="omni_dns_partial">One or more resolver queries failed; successful rows remain independent.</string>
+
+    <string name="omni_connection_title">Omni Connection Center</string>
+    <string name="omni_connection_subtitle">Control the existing native daemon. Requested states remain pending until its real broadcasts confirm the result.</string>
+    <string name="omni_connection_mode">Mode: %1$s</string>
+    <string name="omni_connection_vpn">VPN service</string>
+    <string name="omni_connection_proxy">Proxy only</string>
+    <string name="omni_connection_selected">Selected profile: %1$s · %2$s</string>
+    <string name="omni_connection_no_profile">No valid selected profile.</string>
+    <string name="omni_connection_guid">Selected GUID: %1$s</string>
+    <string name="omni_connection_start">Start</string>
+    <string name="omni_connection_stop">Stop</string>
+    <string name="omni_connection_restart">Restart</string>
+    <string name="omni_connection_actions">Related real tools</string>
+    <string name="omni_connection_unknown">Unknown: waiting for daemon state</string>
+    <string name="omni_connection_stopped">Stopped</string>
+    <string name="omni_connection_starting">Start requested; not yet confirmed</string>
+    <string name="omni_connection_connecting">Daemon is connecting</string>
+    <string name="omni_connection_running">Running (daemon confirmed)</string>
+    <string name="omni_connection_stopping">Stop requested; not yet confirmed</string>
+    <string name="omni_connection_restarting">Restart requested; not yet confirmed</string>
+    <string name="omni_connection_failure">Last operation failed</string>
+    <string name="omni_connection_select_first">Select a valid configuration in Config Manager or the main screen first.</string>
+    <string name="omni_connection_permission_denied">VPN permission was not granted; the daemon was not started.</string>
+    <string name="omni_connection_start_request_failed">No running daemon acknowledged the start/restart request.</string>
+    <string name="omni_connection_start_failed">The daemon reported start failure; no connected state is claimed.</string>
+    <string name="omni_connection_stop_request_failed">The stop request could not be sent.</string>
+    <string name="omni_connection_restart_request_failed">The restart request could not be sent.</string>
+    <string name="omni_connection_refresh_failed">Selected profile or mode could not be refreshed.</string>
+    <string name="omni_doctor_actions">Real follow-up tools</string>
 </resources>

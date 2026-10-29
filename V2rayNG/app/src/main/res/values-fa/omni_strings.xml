@@ -287,4 +287,33 @@
     <string name="omni_dns_no_provider">دست‌کم یک resolver را انتخاب کن.</string>
     <string name="omni_dns_complete">همه‌ی resolverهای انتخاب‌شده پاسخ DNS دادند.</string>
     <string name="omni_dns_partial">یک یا چند کوئری resolver ناموفق بود؛ ردیف‌های موفق مستقل باقی می‌مانند.</string>
+
+    <string name="omni_connection_title">مرکز اتصال اومنی</string>
+    <string name="omni_connection_subtitle">daemon بومی فعلی را کنترل کن. وضعیت درخواست‌شده تا رسیدن broadcast واقعی نتیجه، pending می‌ماند.</string>
+    <string name="omni_connection_mode">حالت: %1$s</string>
+    <string name="omni_connection_vpn">سرویس VPN</string>
+    <string name="omni_connection_proxy">فقط Proxy</string>
+    <string name="omni_connection_selected">پروفایل انتخاب‌شده: %1$s · %2$s</string>
+    <string name="omni_connection_no_profile">پروفایل انتخاب‌شده‌ی معتبری وجود ندارد.</string>
+    <string name="omni_connection_guid">GUID انتخاب‌شده: %1$s</string>
+    <string name="omni_connection_start">شروع</string>
+    <string name="omni_connection_stop">توقف</string>
+    <string name="omni_connection_restart">راه‌اندازی مجدد</string>
+    <string name="omni_connection_actions">ابزارهای واقعی مرتبط</string>
+    <string name="omni_connection_unknown">نامشخص: در انتظار وضعیت daemon</string>
+    <string name="omni_connection_stopped">متوقف</string>
+    <string name="omni_connection_starting">شروع درخواست شد؛ هنوز تأیید نشده</string>
+    <string name="omni_connection_connecting">daemon در حال اتصال است</string>
+    <string name="omni_connection_running">در حال اجرا (تأیید daemon)</string>
+    <string name="omni_connection_stopping">توقف درخواست شد؛ هنوز تأیید نشده</string>
+    <string name="omni_connection_restarting">راه‌اندازی مجدد درخواست شد؛ هنوز تأیید نشده</string>
+    <string name="omni_connection_failure">آخرین عملیات ناموفق بود</string>
+    <string name="omni_connection_select_first">ابتدا در Config Manager یا صفحه‌ی اصلی یک کانفیگ معتبر انتخاب کن.</string>
+    <string name="omni_connection_permission_denied">مجوز VPN داده نشد؛ daemon شروع نشد.</string>
+    <string name="omni_connection_start_request_failed">هیچ daemon فعالی درخواست شروع/راه‌اندازی مجدد را تأیید نکرد.</string>
+    <string name="omni_connection_start_failed">daemon شکست شروع را گزارش کرد؛ وضعیت متصل اعلام نمی‌شود.</string>
+    <string name="omni_connection_stop_request_failed">ارسال درخواست توقف ممکن نشد.</string>
+    <string name="omni_connection_restart_request_failed">ارسال درخواست راه‌اندازی مجدد ممکن نشد.</string>
+    <string name="omni_connection_refresh_failed">پروفایل انتخاب‌شده یا حالت به‌روزرسانی نشد.</string>
+    <string name="omni_doctor_actions">اقدام‌های واقعی بعد از تشخیص</string>
 </resources>

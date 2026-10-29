@@ -247,6 +247,27 @@ fun OmniDoctorScreen(initialPanelId: String?, onBack: () -> Unit) {
                     if (running) CircularProgressIndicator()
                 }
             }
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(stringResource(R.string.omni_doctor_actions), style = MaterialTheme.typography.labelLarge)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { context.startActivity(Intent(context, OmniConfigManagerActivity::class.java)) }, enabled = !running, modifier = Modifier.weight(1f)) {
+                            Text(stringResource(R.string.omni_config_title))
+                        }
+                        OutlinedButton(onClick = { context.startActivity(Intent(context, OmniSpeedLabActivity::class.java)) }, enabled = !running, modifier = Modifier.weight(1f)) {
+                            Text(stringResource(R.string.omni_speed_title))
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { context.startActivity(Intent(context, OmniSyncCenterActivity::class.java)) }, enabled = !running, modifier = Modifier.weight(1f)) {
+                            Text(stringResource(R.string.omni_sync_title))
+                        }
+                        OutlinedButton(onClick = { context.startActivity(Intent(context, OmniConnectionCenterActivity::class.java)) }, enabled = !running, modifier = Modifier.weight(1f)) {
+                            Text(stringResource(R.string.omni_connection_title))
+                        }
+                    }
+                }
+            }
             message?.let { item { Text(it, color = MaterialTheme.colorScheme.primary) } }
             items(stages, key = { it.id }) { stage -> OmniDoctorStageCard(stage) }
         }
