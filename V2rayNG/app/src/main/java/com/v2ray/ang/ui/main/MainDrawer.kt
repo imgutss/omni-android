@@ -38,6 +38,7 @@ enum class MainDestination(@DrawableRes val iconRes: Int, @StringRes val labelRe
     Settings(R.drawable.ic_settings_24dp, R.string.title_settings),
     OmniPanel(R.drawable.ic_cloud_download_24dp, R.string.title_omni_panel),
     OmniDoctor(R.drawable.ic_check_update_24dp, R.string.title_omni_doctor),
+    OmniScanner(R.drawable.ic_scan_24dp, R.string.omni_scanner_title),
     Logcat(R.drawable.ic_logcat_24dp, R.string.title_logcat),
     CheckUpdate(R.drawable.ic_check_update_24dp, R.string.update_check_for_update),
     BackupRestore(R.drawable.ic_restore_24dp, R.string.title_configuration_backup_restore),
@@ -55,6 +56,7 @@ private val primaryDrawerItems = listOf(
 private val drawerItems = primaryDrawerItems + listOf(
     MainDestination.OmniPanel,
     MainDestination.OmniDoctor,
+    MainDestination.OmniScanner,
     MainDestination.Logcat,
     MainDestination.CheckUpdate,
     MainDestination.BackupRestore,

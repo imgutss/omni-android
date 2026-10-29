@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="omni_scanner_title">Omni Scanner</string>
+    <string name="omni_scanner_subtitle">Scan real endpoints, then build from your own VLESS, VMess or Trojan template.</string>
+    <string name="omni_scanner_targets">IP, CIDR, range or host targets</string>
+    <string name="omni_scanner_targets_hint">One target per line. Examples: 192.0.2.0/28, 192.0.2.1-192.0.2.20, host:443,8443</string>
+    <string name="omni_scanner_ports">Ports (comma or space separated)</string>
+    <string name="omni_scanner_concurrency">Concurrency</string>
+    <string name="omni_scanner_limit">Maximum probes</string>
+    <string name="omni_scanner_start">Start real scan</string>
+    <string name="omni_scanner_stop">Stop scan</string>
+    <string name="omni_scanner_select_successful">Select successful</string>
+    <string name="omni_scanner_plan">Planned targets: %1$d · probes: %2$d · invalid inputs: %3$d</string>
+    <string name="omni_scanner_build">Build selected</string>
+    <string name="omni_scanner_save">Save locally</string>
+    <string name="omni_scanner_built">Built configurations: %1$d</string>
+    <string name="omni_scanner_choose_template">Choose a configuration template</string>
+    <string name="omni_scanner_unnamed_template">Unnamed template</string>
+    <string name="omni_scanner_invalid">Enter valid targets, ports, concurrency and a probe limit.</string>
+    <string name="omni_scanner_no_template">Choose a VLESS, VMess or Trojan template first.</string>
+    <string name="omni_scanner_no_selection">Select at least one successful endpoint.</string>
+    <string name="omni_scanner_build_empty">There is no built configuration to save.</string>
+    <string name="omni_scanner_saved">Saved %1$d configurations locally.</string>
+    <string name="omni_scanner_save_failed">Saving failed; no successful save is claimed.</string>
+    <string name="omni_scanner_result_label">Select scan result %1$s</string>
+    <string name="omni_scanner_metrics">Success %1$d/%2$d · median %3$s ms · jitter %4$s ms</string>
+    <string name="omni_scanner_no_response">no response</string>
+    <string name="omni_scanner_speed_title">Speed &amp; Ping Lab</string>
+    <string name="omni_scanner_speed_note">Tunnel TTFB and byte/time throughput are separate from direct edge latency. Tests use the saved built configuration through the native core.</string>
+    <string name="omni_scanner_download_url">Download test URL</string>
+    <string name="omni_scanner_upload_url">Optional upload test URL</string>
+    <string name="omni_scanner_speed_run">Measure tunnel speed</string>
+    <string name="omni_scanner_retest">Retest through core</string>
+    <string name="omni_scanner_running">Running…</string>
+    <string name="omni_scanner_tunnel_metrics">Tunnel TTFB: %1$s ms · HTTP: %2$s</string>
+    <string name="omni_scanner_download_metrics">Download: %1$d bytes in %2$d ms · %3$.2f MB/s (%4$.2f Mbps)</string>
+    <string name="omni_scanner_upload_metrics">Upload: %1$d bytes in %2$d ms · %3$.2f MB/s (%4$.2f Mbps)</string>
+    <string name="omni_scanner_data_use">Test limits: download %1$d bytes · upload %2$d bytes · measured data %3$d bytes</string>
+    <string name="omni_scanner_ping_metrics">Core HTTP ping: %1$d/%2$d successful · median %3$s ms · jitter %4$s ms</string>
+    <string name="omni_scanner_no_saved">Save a built configuration first; the speed lab tests that saved configuration.</string>
+    <string name="omni_scanner_speed_failed">The native tunnel test failed; no speed or connectivity is claimed.</string>
+</resources>

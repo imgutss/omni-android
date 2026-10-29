@@ -142,6 +142,10 @@
             android:name=".omni.OmniDoctorActivity"
             android:exported="false" />
         <activity
+            android:name=".omni.OmniScannerActivity"
+            android:windowSoftInputMode="stateUnchanged|adjustResize"
+            android:exported="false" />
+        <activity
             android:name=".ui.perappproxy.PerAppProxyActivity"
             android:exported="false" />
         <activity
