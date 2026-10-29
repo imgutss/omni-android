@@ -38,6 +38,16 @@ class OmniScopedModelsTest {
     }
 
     @Test
+    fun publicSessionMetadataHasNoTokenAndDistinguishesExpiry() {
+        val info = session.publicInfo()
+        assertTrue(info.panelId == "panel-1")
+        assertTrue(info.scopes == session.scopes)
+        assertTrue(info.isActive(1_999L))
+        assertFalse(info.isActive(2_000L))
+        assertFalse(info.toString().contains("token"))
+    }
+
+    @Test
     fun blankTokenOrUserCannotAuthorize() {
         assertFalse(session.copy(accessToken = "").validAt(1_000L))
         assertFalse(session.copy(userUuid = "").validAt(1_000L))

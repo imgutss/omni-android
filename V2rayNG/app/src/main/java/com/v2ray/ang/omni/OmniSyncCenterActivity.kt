@@ -162,7 +162,7 @@ private fun OmniSyncPanelCard(
                 if (active) CircularProgressIndicator(modifier = Modifier.padding(4.dp), strokeWidth = 2.dp)
             }
             Text(omniSyncStatusText(panel.lastStatus), color = MaterialTheme.colorScheme.primary)
-            if (panel.lastStatusDetail.isNotBlank()) Text(panel.lastStatusDetail, style = MaterialTheme.typography.bodySmall)
+            omniSafePanelStatusDetail(panel.lastStatusDetail).takeIf { it.isNotBlank() }?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
             Text(
                 if (panel.lastSyncAt > 0L) {
                     stringResource(R.string.omni_hub_last_sync, DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(panel.lastSyncAt)))

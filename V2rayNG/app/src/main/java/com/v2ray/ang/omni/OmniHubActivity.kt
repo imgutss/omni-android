@@ -80,15 +80,20 @@ fun OmniHubScreen(
     var pairInitialCode by remember { mutableStateOf("") }
     var removeTarget by remember { mutableStateOf<OmniPanel?>(null) }
     var scopedScopes by remember { mutableStateOf<Map<String, Set<String>>>(emptyMap()) }
+    var scopedSessions by remember { mutableStateOf<Map<String, OmniScopedSessionInfo>>(emptyMap()) }
 
     suspend fun reload() {
         val loadedPanels = repository.panels()
         val loadedScopes = mutableMapOf<String, Set<String>>()
+        val loadedSessions = mutableMapOf<String, OmniScopedSessionInfo>()
         for (panel in loadedPanels) {
-            loadedScopes[panel.id] = repository.scopedScopes(panel)
+            val session = repository.scopedSessionInfo(panel)
+            if (session != null) loadedSessions[panel.id] = session
+            loadedScopes[panel.id] = session?.takeIf { it.isActive(System.currentTimeMillis()) }?.scopes.orEmpty()
         }
         panels = loadedPanels
         scopedScopes = loadedScopes
+        scopedSessions = loadedSessions
     }
 
     LaunchedEffect(scannedPair) {
@@ -100,7 +105,7 @@ fun OmniHubScreen(
     }
 
     LaunchedEffect(Unit) {
-        runCatching { reload() }.onFailure { message = it.message }
+        runCatching { reload() }.onFailure { message = hubErrorText(it, context.getString(R.string.omni_hub_operation_failed)) }
     }
 
     fun runTask(task: suspend () -> Unit) {
@@ -112,7 +117,7 @@ fun OmniHubScreen(
                 task()
                 reload()
             } catch (error: Exception) {
-                message = error.message ?: error.javaClass.simpleName
+                message = hubErrorText(error, context.getString(R.string.omni_hub_operation_failed))
             } finally {
                 busy = false
             }
@@ -179,6 +184,7 @@ fun OmniHubScreen(
                     panel = panel,
                     busy = busy,
                     scopes = scopedScopes[panel.id].orEmpty(),
+                    session = scopedSessions[panel.id],
                     onSync = {
                         runTask {
                             val count = repository.sync(panel)
@@ -280,6 +286,7 @@ private fun OmniPanelCard(
     panel: OmniPanel,
     busy: Boolean,
     scopes: Set<String>,
+    session: OmniScopedSessionInfo?,
     onSync: () -> Unit,
     onCheck: () -> Unit,
     onRemove: () -> Unit,
@@ -289,13 +296,14 @@ private fun OmniPanelCard(
     onDoctor: () -> Unit,
 ) {
     val status = runCatching { OmniPanelStatus.valueOf(panel.lastStatus) }.getOrDefault(OmniPanelStatus.INVALID)
+    val statusDetail = omniSafePanelStatusDetail(panel.lastStatusDetail)
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(panel.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Text(panel.baseUrl, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(omniPanelStatusText(status), color = MaterialTheme.colorScheme.primary)
-            if (panel.lastStatusDetail.isNotBlank()) {
-                Text(panel.lastStatusDetail, style = MaterialTheme.typography.bodySmall)
+            if (statusDetail.isNotBlank()) {
+                Text(statusDetail, style = MaterialTheme.typography.bodySmall)
             }
             Text(
                 if (panel.lastSyncAt > 0L) {
@@ -307,6 +315,15 @@ private fun OmniPanelCard(
                 style = MaterialTheme.typography.bodySmall,
             )
             Text(stringResource(R.string.omni_hub_scoped_title), style = MaterialTheme.typography.labelLarge)
+            if (session != null) {
+                Text(
+                    stringResource(
+                        if (session.isActive(System.currentTimeMillis())) R.string.omni_hub_pairing_expiry else R.string.omni_hub_pairing_expired,
+                        DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(session.expiresAt)),
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
             if (scopes.isEmpty()) {
                 Text(stringResource(R.string.omni_hub_scoped_none), style = MaterialTheme.typography.bodySmall)
             } else {
@@ -334,6 +351,9 @@ private fun OmniPanelCard(
         }
     }
 }
+
+private fun hubErrorText(error: Throwable, generic: String): String =
+    (error as? OmniHubException)?.message?.takeIf { it.isNotBlank() } ?: generic
 
 @Composable
 private fun omniPanelStatusText(status: OmniPanelStatus): String = stringResource(

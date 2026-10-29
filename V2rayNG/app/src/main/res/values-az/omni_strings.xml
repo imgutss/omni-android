@@ -278,4 +278,8 @@
     <string name="omni_scanner_core_no_response">Real core: no response (%1$d/%2$d responses)</string>
     <string name="omni_scanner_retested">All saved configurations received a real-core result; ranking uses those samples.</string>
     <string name="omni_scanner_retest_failed">Real-core re-test is incomplete; no connectivity is claimed.</string>
+
+    <string name="omni_hub_pairing_expiry">Scoped session expires: %1$s</string>
+    <string name="omni_hub_pairing_expired">Scoped session expired: %1$s. Local Forget remains available; server revocation is not claimed.</string>
+    <string name="omni_hub_operation_failed">Hub operation failed. No credentials or subscription URL are shown.</string>
 </resources>

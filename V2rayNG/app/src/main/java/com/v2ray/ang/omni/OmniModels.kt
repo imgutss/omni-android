@@ -39,6 +39,13 @@ data class OmniPanelHealth(
 
 class OmniHubException(message: String, val httpStatus: Int? = null) : Exception(message)
 
+/** Compatibility filter for status text written by older builds, which could include exception URLs. */
+fun omniSafePanelStatusDetail(raw: String): String {
+    if (raw.isBlank() || raw.length > 512) return ""
+    val sensitive = Regex("(?i)(https?://|bearer\\s+|access[_-]?token|subscription[_-]?url|token\\s*=)")
+    return if (sensitive.containsMatchIn(raw)) "" else raw
+}
+
 enum class OmniDoctorStatus { RUNNING, PASS, WARN, FAIL, SKIPPED }
 
 data class OmniDoctorStage(

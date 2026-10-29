@@ -90,6 +90,11 @@ internal class OmniPanelStore(context: Context) {
         loadScopedSessions().firstOrNull { it.panelId == panelId && it.validAt(System.currentTimeMillis()) }
     }
 
+    /** Includes expired sessions so the UI can offer local Forget without exposing the token. */
+    fun scopedSessionInfo(panelId: String): OmniScopedSessionInfo? = synchronized(lock) {
+        loadScopedSessions().firstOrNull { it.panelId == panelId }?.publicInfo()
+    }
+
     fun saveScopedSession(session: OmniScopedSession) = synchronized(lock) {
         val sessions = loadScopedSessions().filterNot { it.panelId == session.panelId } + session
         saveScopedSessions(sessions)

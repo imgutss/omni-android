@@ -174,6 +174,10 @@ class OmniHubRepository(context: Context) {
         store.scopedSession(panel.id)?.scopes ?: emptySet()
     }
 
+    suspend fun scopedSessionInfo(panel: OmniPanel): OmniScopedSessionInfo? = withContext(Dispatchers.IO) {
+        store.scopedSessionInfo(panel.id)
+    }
+
     /** Local-only erasure for expired/offline sessions; this never claims a server-side revoke. */
     suspend fun forgetScopedSession(panel: OmniPanel): Unit = withContext(Dispatchers.IO) {
         store.removeScopedSession(panel.id)
@@ -373,7 +377,7 @@ class OmniHubRepository(context: Context) {
             OmniPanelHealth(
                 status = status,
                 elapsedMillis = elapsedMillis(started),
-                rawDetail = "${error.javaClass.simpleName}: ${error.message ?: "no detail"}; ${elapsedMillis(started)} ms",
+                rawDetail = "${error.javaClass.simpleName}; ${elapsedMillis(started)} ms",
             )
         }
         runCatching {
@@ -455,10 +459,11 @@ class OmniHubRepository(context: Context) {
         url.newBuilder().encodedPath("/").query(null).fragment(null).build().toString().trimEnd('/')
 
     private fun networkFailure(error: Exception): OmniHubException = when (error) {
-        is SocketTimeoutException -> OmniHubException("Panel timeout: ${error.message ?: "no response"}")
-        is UnknownHostException -> OmniHubException("DNS failed: ${error.message ?: "host not found"}")
-        is SSLException -> OmniHubException("TLS failed: ${error.message ?: "handshake failed"}")
-        is IOException -> OmniHubException("Network failed: ${error.message ?: "I/O error"}")
+        // Exception messages may contain the complete subscription URL; keep them out of UI and persisted status.
+        is SocketTimeoutException -> OmniHubException("Panel timeout: no response")
+        is UnknownHostException -> OmniHubException("DNS failed: host not found")
+        is SSLException -> OmniHubException("TLS failed: handshake failed")
+        is IOException -> OmniHubException("Network failed: I/O error")
         else -> OmniHubException("Panel request failed: ${error.javaClass.simpleName}")
     }
 
