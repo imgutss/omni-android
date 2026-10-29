@@ -368,4 +368,5 @@
     <string name="omni_privacy_notifications_system_off">اعلان‌های سیستم خاموش است. تنظیم ذخیره می‌شود، اما Android این اعلان‌ها را نمایش نمی‌دهد.</string>
     <string name="omni_privacy_notification_settings">باز کردن تنظیمات اعلان سیستم</string>
     <string name="omni_privacy_preference_failed">تنظیم اعلان ذخیره نشد.</string>
+    <string name="omni_hub_sync_partial">Sync با خطای جزئی تمام شد: %1$d از %2$d panel موفق بود.</string>
 </resources>

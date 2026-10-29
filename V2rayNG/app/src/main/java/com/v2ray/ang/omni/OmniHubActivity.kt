@@ -1,7 +1,7 @@
 package com.v2ray.ang.omni
 
 import android.content.Intent
-import android.os.Build
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,7 +29,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,19 +37,26 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.v2ray.ang.BuildConfig
 import com.v2ray.ang.R
 import com.v2ray.ang.ui.base.HelperBaseComponentActivity
 import com.v2ray.ang.ui.compose.AppTopBar
-import kotlinx.coroutines.launch
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.text.DateFormat
 import java.util.Date
 
 class OmniHubActivity : HelperBaseComponentActivity() {
+    private val model: OmniHubViewModel by viewModels()
+
+    override fun onResume() {
+        super.onResume()
+        model.refresh()
+    }
+
     @Composable
     override fun ScreenContent() {
-        var scannedPair by remember { mutableStateOf<String?>(null) }
+        var scannedPair by rememberSaveable { mutableStateOf<String?>(null) }
         OmniHubScreen(
+            model = model,
             onBack = { finish() },
             scannedPair = scannedPair,
             onScanPair = {
@@ -64,63 +71,29 @@ class OmniHubActivity : HelperBaseComponentActivity() {
 
 @Composable
 fun OmniHubScreen(
+    model: OmniHubViewModel,
     onBack: () -> Unit,
     scannedPair: String? = null,
     onScanPair: () -> Unit = {},
     onScannedPairConsumed: () -> Unit = {},
 ) {
     val context = LocalContext.current
-    val repository = remember { OmniHubRepository(context) }
-    val scope = rememberCoroutineScope()
-    var panels by remember { mutableStateOf<List<OmniPanel>>(emptyList()) }
-    var busy by remember { mutableStateOf(false) }
-    var message by remember { mutableStateOf<String?>(null) }
-    var showAdd by remember { mutableStateOf(false) }
-    var showPair by remember { mutableStateOf(false) }
-    var pairInitialCode by remember { mutableStateOf("") }
+    val state by model.state.collectAsStateWithLifecycle()
+    val panels = state.panels
+    val busy = state.busy || state.loading
+    val message = state.message
+    val scopedScopes = state.scopedScopes
+    val scopedSessions = state.scopedSessions
+    var showAdd by rememberSaveable { mutableStateOf(false) }
+    var showPair by rememberSaveable { mutableStateOf(false) }
+    var pairInitialCode by rememberSaveable { mutableStateOf("") }
     var removeTarget by remember { mutableStateOf<OmniPanel?>(null) }
-    var scopedScopes by remember { mutableStateOf<Map<String, Set<String>>>(emptyMap()) }
-    var scopedSessions by remember { mutableStateOf<Map<String, OmniScopedSessionInfo>>(emptyMap()) }
-
-    suspend fun reload() {
-        val loadedPanels = repository.panels()
-        val loadedScopes = mutableMapOf<String, Set<String>>()
-        val loadedSessions = mutableMapOf<String, OmniScopedSessionInfo>()
-        for (panel in loadedPanels) {
-            val session = repository.scopedSessionInfo(panel)
-            if (session != null) loadedSessions[panel.id] = session
-            loadedScopes[panel.id] = session?.takeIf { it.isActive(System.currentTimeMillis()) }?.scopes.orEmpty()
-        }
-        panels = loadedPanels
-        scopedScopes = loadedScopes
-        scopedSessions = loadedSessions
-    }
 
     LaunchedEffect(scannedPair) {
         if (scannedPair != null) {
             pairInitialCode = scannedPair
             showPair = true
             onScannedPairConsumed()
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        runCatching { reload() }.onFailure { message = hubErrorText(it, context.getString(R.string.omni_hub_operation_failed)) }
-    }
-
-    fun runTask(task: suspend () -> Unit) {
-        if (busy) return
-        busy = true
-        message = null
-        scope.launch {
-            try {
-                task()
-                reload()
-            } catch (error: Exception) {
-                message = hubErrorText(error, context.getString(R.string.omni_hub_operation_failed))
-            } finally {
-                busy = false
-            }
         }
     }
 
@@ -159,19 +132,14 @@ fun OmniHubScreen(
             item {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     OutlinedButton(
-                        onClick = {
-                            runTask {
-                                panels.forEach { panel -> repository.sync(panel) }
-                                message = context.getString(R.string.omni_hub_sync_finished)
-                            }
-                        },
+                        onClick = model::syncAll,
                         enabled = !busy && panels.isNotEmpty(),
                     ) { Text(stringResource(R.string.omni_hub_sync_all)) }
                     Spacer(Modifier.width(12.dp))
                     if (busy) CircularProgressIndicator(modifier = Modifier.width(24.dp).height(24.dp), strokeWidth = 2.dp)
                 }
             }
-            message?.let { item { Text(it, color = MaterialTheme.colorScheme.primary) } }
+            message?.let { item { Text(it, color = if (state.messageIsError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary) } }
             if (panels.isEmpty() && !busy) {
                 item {
                     Card(Modifier.fillMaxWidth()) {
@@ -185,37 +153,12 @@ fun OmniHubScreen(
                     busy = busy,
                     scopes = scopedScopes[panel.id].orEmpty(),
                     session = scopedSessions[panel.id],
-                    onSync = {
-                        runTask {
-                            val count = repository.sync(panel)
-                            message = context.getString(R.string.omni_hub_synced, count)
-                        }
-                    },
-                    onCheck = {
-                        runTask {
-                            val health = repository.check(panel)
-                            message = health.rawDetail
-                        }
-                    },
+                    onSync = { model.sync(panel.id) },
+                    onCheck = { model.check(panel.id) },
                     onRemove = { removeTarget = panel },
-                    onRevoke = {
-                        runTask {
-                            repository.revokeScoped(panel)
-                            message = context.getString(R.string.omni_hub_revoked)
-                        }
-                    },
-                    onReadTemplates = {
-                        runTask {
-                            val templates = repository.readScopedTemplates(panel)
-                            message = context.getString(R.string.omni_hub_templates_read, templates.uriCount, templates.groups.size)
-                        }
-                    },
-                    onReportDevice = {
-                        runTask {
-                            repository.reportDevice(panel, BuildConfig.VERSION_NAME, Build.MODEL, Build.VERSION.RELEASE)
-                            message = context.getString(R.string.omni_hub_device_reported)
-                        }
-                    },
+                    onRevoke = { model.revokeScoped(panel.id) },
+                    onReadTemplates = { model.readScopedTemplates(panel.id) },
+                    onReportDevice = { model.reportDevice(panel.id) },
                     onDoctor = {
                         context.startActivity(
                             Intent(context, OmniDoctorActivity::class.java)
@@ -233,10 +176,7 @@ fun OmniHubScreen(
             onDismiss = { showAdd = false },
             onConfirm = { name, url, insecure ->
                 showAdd = false
-                runTask {
-                    repository.addSubscription(name, url, insecure)
-                    message = context.getString(R.string.omni_hub_added)
-                }
+                model.addSubscription(name, url, insecure)
             },
         )
     }
@@ -247,10 +187,7 @@ fun OmniHubScreen(
             onDismiss = { showPair = false },
             onConfirm = { base, code, name, insecure ->
                 showPair = false
-                runTask {
-                    repository.pairWithCode(base, code, name, insecure)
-                    message = context.getString(R.string.omni_hub_added)
-                }
+                model.pairWithCode(base, code, name, insecure)
             },
         )
     }
@@ -268,10 +205,7 @@ fun OmniHubScreen(
             confirmButton = {
                 TextButton(onClick = {
                     removeTarget = null
-                    runTask {
-                        repository.remove(panel)
-                        message = context.getString(R.string.omni_hub_removed)
-                    }
+                    model.remove(panel.id)
                 }) { Text(stringResource(R.string.omni_hub_remove)) }
             },
             dismissButton = {
@@ -352,9 +286,6 @@ private fun OmniPanelCard(
     }
 }
 
-private fun hubErrorText(error: Throwable, generic: String): String =
-    (error as? OmniHubException)?.message?.takeIf { it.isNotBlank() } ?: generic
-
 @Composable
 private fun omniPanelStatusText(status: OmniPanelStatus): String = stringResource(
     when (status) {
@@ -377,9 +308,9 @@ private fun OmniAddSubscriptionDialog(
     onDismiss: () -> Unit,
     onConfirm: (String, String, Boolean) -> Unit,
 ) {
-    var name by remember { mutableStateOf("") }
-    var url by remember { mutableStateOf("") }
-    var insecure by remember { mutableStateOf(false) }
+    var name by rememberSaveable { mutableStateOf("") }
+    var url by rememberSaveable { mutableStateOf("") }
+    var insecure by rememberSaveable { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.omni_hub_add_subscription)) },
@@ -409,10 +340,10 @@ private fun OmniPairDialog(
     onDismiss: () -> Unit,
     onConfirm: (String, String, String, Boolean) -> Unit,
 ) {
-    var base by remember { mutableStateOf("") }
-    var code by remember(initialCode) { mutableStateOf(initialCode) }
-    var name by remember { mutableStateOf("") }
-    var insecure by remember { mutableStateOf(false) }
+    var base by rememberSaveable { mutableStateOf("") }
+    var code by rememberSaveable(initialCode) { mutableStateOf(initialCode) }
+    var name by rememberSaveable { mutableStateOf("") }
+    var insecure by rememberSaveable { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.omni_hub_pair_code)) },

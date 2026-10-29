@@ -293,4 +293,5 @@
     <string name="omni_privacy_notifications_system_off">System notifications are disabled. The preference is saved, but Android will not display these notifications.</string>
     <string name="omni_privacy_notification_settings">Open system notification settings</string>
     <string name="omni_privacy_preference_failed">The notification preference could not be saved.</string>
+    <string name="omni_hub_sync_partial">Sync finished with partial failures: %1$d of %2$d panels succeeded.</string>
 </resources>
