@@ -282,4 +282,15 @@
     <string name="omni_hub_pairing_expiry">Scoped session expires: %1$s</string>
     <string name="omni_hub_pairing_expired">Scoped session expired: %1$s. Local Forget remains available; server revocation is not claimed.</string>
     <string name="omni_hub_operation_failed">Hub operation failed. No credentials or subscription URL are shown.</string>
+
+    <string name="omni_notification_channel">Omni operation results</string>
+    <string name="omni_notification_scan_title">Scanner finished</string>
+    <string name="omni_notification_scan_content">%1$d of %2$d targets responded. No target or credential is included.</string>
+    <string name="omni_notification_sync_title">Hub Sync finished</string>
+    <string name="omni_notification_sync_content">%1$d of %2$d panel operations succeeded. No subscription or credential is included.</string>
+    <string name="omni_privacy_notifications">Operation completion notifications</string>
+    <string name="omni_privacy_notifications_note">Off by default. Only Scanner/Sync counts are shown; never targets, URLs, tokens, or configurations.</string>
+    <string name="omni_privacy_notifications_system_off">System notifications are disabled. The preference is saved, but Android will not display these notifications.</string>
+    <string name="omni_privacy_notification_settings">Open system notification settings</string>
+    <string name="omni_privacy_preference_failed">The notification preference could not be saved.</string>
 </resources>

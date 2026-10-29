@@ -357,4 +357,15 @@
     <string name="omni_hub_pairing_expiry">انقضای نشست scoped: %1$s</string>
     <string name="omni_hub_pairing_expired">نشست scoped منقضی شده: %1$s. Forget محلی در دسترس است؛ لغو سمت سرور ادعا نمی‌شود.</string>
     <string name="omni_hub_operation_failed">عملیات Hub ناموفق بود. هیچ credential یا URL اشتراک نمایش داده نمی‌شود.</string>
+
+    <string name="omni_notification_channel">نتایج عملیات Omni</string>
+    <string name="omni_notification_scan_title">Scanner تمام شد</string>
+    <string name="omni_notification_scan_content">%1$d از %2$d هدف پاسخ داد. هیچ هدف یا credential‌ای درج نشده است.</string>
+    <string name="omni_notification_sync_title">Hub Sync تمام شد</string>
+    <string name="omni_notification_sync_content">%1$d از %2$d عملیات panel موفق بود. هیچ اشتراک یا credential‌ای درج نشده است.</string>
+    <string name="omni_privacy_notifications">اعلان پایان عملیات</string>
+    <string name="omni_privacy_notifications_note">به‌صورت پیش‌فرض خاموش است. فقط تعداد Scanner/Sync نمایش داده می‌شود؛ هرگز هدف، URL، token یا پیکربندی نه.</string>
+    <string name="omni_privacy_notifications_system_off">اعلان‌های سیستم خاموش است. تنظیم ذخیره می‌شود، اما Android این اعلان‌ها را نمایش نمی‌دهد.</string>
+    <string name="omni_privacy_notification_settings">باز کردن تنظیمات اعلان سیستم</string>
+    <string name="omni_privacy_preference_failed">تنظیم اعلان ذخیره نشد.</string>
 </resources>

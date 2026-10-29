@@ -116,6 +116,9 @@ class OmniSyncCenterViewModel(application: Application) : AndroidViewModel(appli
                     completed += result
                     mutableState.update { it.copy(results = mergeOmniSyncResult(it.results, result)) }
                 }
+                if (operation == OmniSyncOperation.SYNC) {
+                    OmniOperationNotifier.syncCompleted(getApplication(), completed.size, completed.count { it.success })
+                }
                 val refreshed = repository.panels()
                 val idsNow = refreshed.mapTo(mutableSetOf()) { it.id }
                 mutableState.update {

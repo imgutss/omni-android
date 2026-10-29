@@ -148,6 +148,7 @@ class OmniScannerViewModel(application: Application) : AndroidViewModel(applicat
                     scanning = true, message = null,
                 )
             }
+            var scanCompleted = false
             try {
                 runner.scan(
                 plan,
@@ -168,12 +169,17 @@ class OmniScannerViewModel(application: Application) : AndroidViewModel(applicat
                     val ranked = withContext(Dispatchers.Default) { (mutableState.value.results + result).rankByEdgeQuality() }
                     mutableState.update { state -> state.copy(results = ranked) }
                 }
+                scanCompleted = true
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
                 mutableState.update { it.copy(message = OmniScannerMessage.SCAN_FAILED) }
             } finally {
                 mutableState.update { it.copy(scanning = false) }
+                if (scanCompleted) {
+                    val results = mutableState.value.results
+                    OmniOperationNotifier.scanCompleted(getApplication(), results.size, results.count { it.success })
+                }
             }
         }
     }

@@ -17,7 +17,34 @@ class OmniPrivacyCenterViewModel(application: Application) : AndroidViewModel(ap
     val state: StateFlow<OmniPrivacyCenterUiState> = mutableState.asStateFlow()
     private var refreshJob: Job? = null
 
-    init { refresh() }
+    init {
+        mutableState.update {
+            it.copy(
+                notificationsEnabled = OmniOperationNotifier.isEnabled(),
+                notificationsSystemEnabled = OmniOperationNotifier.systemEnabled(application),
+            )
+        }
+        refresh()
+    }
+
+    fun setNotificationsEnabled(enabled: Boolean) {
+        val saved = OmniOperationNotifier.setEnabled(enabled)
+        mutableState.update {
+            it.copy(
+                notificationsEnabled = if (saved) enabled else OmniOperationNotifier.isEnabled(),
+                message = if (saved) null else OmniPrivacyMessage.PREFERENCE_FAILED,
+            )
+        }
+    }
+
+    fun refreshNotificationState() {
+        mutableState.update {
+            it.copy(
+                notificationsEnabled = OmniOperationNotifier.isEnabled(),
+                notificationsSystemEnabled = OmniOperationNotifier.systemEnabled(getApplication()),
+            )
+        }
+    }
 
     fun refresh() {
         if (mutableState.value.busy || refreshJob?.isActive == true) return
@@ -26,7 +53,15 @@ class OmniPrivacyCenterViewModel(application: Application) : AndroidViewModel(ap
             try {
                 val panels = repository.panels()
                 val scopes = panels.associate { panel -> panel.id to repository.scopedScopes(panel) }
-                mutableState.update { it.copy(panels = panels, scopes = scopes, loading = false) }
+                mutableState.update {
+                    it.copy(
+                        panels = panels,
+                        scopes = scopes,
+                        loading = false,
+                        notificationsEnabled = OmniOperationNotifier.isEnabled(),
+                        notificationsSystemEnabled = OmniOperationNotifier.systemEnabled(getApplication()),
+                    )
+                }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {

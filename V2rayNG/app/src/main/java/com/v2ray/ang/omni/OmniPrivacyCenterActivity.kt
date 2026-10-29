@@ -34,10 +34,16 @@ import com.v2ray.ang.R
 import com.v2ray.ang.ui.backup.BackupActivity
 import com.v2ray.ang.ui.base.BaseComponentActivity
 import com.v2ray.ang.ui.compose.AppTopBar
+import com.v2ray.ang.ui.compose.SettingsSwitchItem
 import com.v2ray.ang.ui.settings.SettingsActivity
 
 class OmniPrivacyCenterActivity : BaseComponentActivity() {
     private val model: OmniPrivacyCenterViewModel by viewModels()
+
+    override fun onResume() {
+        super.onResume()
+        model.refreshNotificationState()
+    }
 
     @Composable
     override fun ScreenContent() {
@@ -54,6 +60,10 @@ class OmniPrivacyCenterActivity : BaseComponentActivity() {
             onForgetPanel = model::forgetPanelLocal,
             onBackup = { startActivity(Intent(this, BackupActivity::class.java)) },
             onSettings = { startActivity(Intent(this, SettingsActivity::class.java)) },
+            onNotificationsChanged = model::setNotificationsEnabled,
+            onNotificationSettings = {
+                startActivity(Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, packageName))
+            },
         )
         if (confirmRevoke) {
             AlertDialog(
@@ -87,6 +97,8 @@ fun OmniPrivacyCenterScreen(
     onForgetPanel: (String) -> Unit,
     onBackup: () -> Unit,
     onSettings: () -> Unit,
+    onNotificationsChanged: (Boolean) -> Unit,
+    onNotificationSettings: () -> Unit,
 ) {
     val activeCount = omniActivePairedPanelIds(state.scopes).size
     Scaffold(topBar = { AppTopBar(title = stringResource(R.string.omni_privacy_title), onBackClick = onBack) }) { padding ->
@@ -102,6 +114,16 @@ fun OmniPrivacyCenterScreen(
                         Text(stringResource(R.string.omni_privacy_inventory), style = MaterialTheme.typography.bodySmall)
                         Text(stringResource(R.string.omni_privacy_counts, state.panels.size, activeCount))
                         Text(stringResource(R.string.omni_privacy_backup_note), style = MaterialTheme.typography.bodySmall)
+                        SettingsSwitchItem(
+                            title = stringResource(R.string.omni_privacy_notifications),
+                            summary = stringResource(R.string.omni_privacy_notifications_note),
+                            checked = state.notificationsEnabled,
+                            onCheckedChange = onNotificationsChanged,
+                        )
+                        if (!state.notificationsSystemEnabled) {
+                            Text(stringResource(R.string.omni_privacy_notifications_system_off), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                        }
+                        OutlinedButton(onClick = onNotificationSettings, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.omni_privacy_notification_settings)) }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedButton(onClick = onBackup, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.title_configuration_backup_restore)) }
                             OutlinedButton(onClick = onSettings, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.title_settings)) }
@@ -150,5 +172,6 @@ private fun privacyMessageText(message: OmniPrivacyMessage): String = stringReso
         OmniPrivacyMessage.PARTIAL -> R.string.omni_privacy_partial
         OmniPrivacyMessage.LOCAL_FORGOTTEN -> R.string.omni_privacy_local_forgotten
         OmniPrivacyMessage.FORGET_FAILED -> R.string.omni_privacy_forget_failed
+        OmniPrivacyMessage.PREFERENCE_FAILED -> R.string.omni_privacy_preference_failed
     },
 )

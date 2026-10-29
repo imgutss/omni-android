@@ -6,9 +6,11 @@ data class OmniPrivacyCenterUiState(
     val loading: Boolean = false,
     val busy: Boolean = false,
     val message: OmniPrivacyMessage? = null,
+    val notificationsEnabled: Boolean = false,
+    val notificationsSystemEnabled: Boolean = true,
 )
 
-enum class OmniPrivacyMessage { LOAD_FAILED, NO_PAIRINGS, REVOKED, PARTIAL, LOCAL_FORGOTTEN, FORGET_FAILED }
+enum class OmniPrivacyMessage { LOAD_FAILED, NO_PAIRINGS, REVOKED, PARTIAL, LOCAL_FORGOTTEN, FORGET_FAILED, PREFERENCE_FAILED }
 
 fun omniActivePairedPanelIds(scopes: Map<String, Set<String>>): Set<String> =
     scopes.filterValues { it.isNotEmpty() }.keys
