@@ -241,4 +241,24 @@
     <string name="omni_connection_restart_request_failed">The restart request could not be sent.</string>
     <string name="omni_connection_refresh_failed">Selected profile or mode could not be refreshed.</string>
     <string name="omni_doctor_actions">Real follow-up tools</string>
+
+    <string name="omni_privacy_title">Omni Privacy &amp; Backup</string>
+    <string name="omni_privacy_subtitle">Inspect pairing capabilities and erase access deliberately. Tokens and subscription URLs are never rendered here.</string>
+    <string name="omni_privacy_inventory">Profiles use the existing app stores. Panel metadata, subscription links and scoped bearer sessions are encrypted with an Android Keystore-backed store; administrator, bot and Cloudflare tokens are not accepted.</string>
+    <string name="omni_privacy_counts">Connected panels: %1$d · active scoped pairings: %2$d</string>
+    <string name="omni_privacy_backup_note">Backup and notification controls remain in their existing real screens. Review any exported backup before sharing it.</string>
+    <string name="omni_privacy_revoke_all">Revoke all active pairings on panels</string>
+    <string name="omni_privacy_revoke_confirm">Each active panel is contacted separately. A failed request stays paired locally and is counted as failed; no offline success is claimed.</string>
+    <string name="omni_privacy_forget_all">Forget all local pairing tokens</string>
+    <string name="omni_privacy_forget_confirm">This erases local scoped sessions, including expired ones. It does not contact panels and does not revoke server-side access.</string>
+    <string name="omni_privacy_empty">No connected panels or scoped sessions are present.</string>
+    <string name="omni_privacy_no_active_pairing">No active scoped pairing reported locally; an expired token may still need local Forget.</string>
+    <string name="omni_privacy_scopes">Capabilities: %1$s</string>
+    <string name="omni_privacy_forget_local">Forget local token</string>
+    <string name="omni_privacy_load_failed">Privacy storage could not be read; no erasure is claimed.</string>
+    <string name="omni_privacy_no_pairings">There is no active scoped pairing for this action.</string>
+    <string name="omni_privacy_revoked">Requested active pairings were revoked on their panels and removed locally.</string>
+    <string name="omni_privacy_partial">Some revokes failed. Successful panels were removed locally; failed panels remain paired.</string>
+    <string name="omni_privacy_local_forgotten">Local pairing-token cleanup completed. Server-side access was not changed by this action.</string>
+    <string name="omni_privacy_forget_failed">One or more local token stores could not be updated; full erasure is not claimed.</string>
 </resources>

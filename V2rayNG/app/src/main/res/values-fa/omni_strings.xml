@@ -316,4 +316,24 @@
     <string name="omni_connection_restart_request_failed">ارسال درخواست راه‌اندازی مجدد ممکن نشد.</string>
     <string name="omni_connection_refresh_failed">پروفایل انتخاب‌شده یا حالت به‌روزرسانی نشد.</string>
     <string name="omni_doctor_actions">اقدام‌های واقعی بعد از تشخیص</string>
+
+    <string name="omni_privacy_title">حریم خصوصی و پشتیبان اومنی</string>
+    <string name="omni_privacy_subtitle">قابلیت‌های pairing را ببین و دسترسی را آگاهانه پاک کن. token و URL subscription در این صفحه نمایش داده نمی‌شوند.</string>
+    <string name="omni_privacy_inventory">پروفایل‌ها در ذخیره‌سازهای فعلی برنامه‌اند. metadata پنل، لینک subscription و sessionهای scoped با کلید Android Keystore رمز می‌شوند؛ token ادمین، bot و Cloudflare پذیرفته نمی‌شود.</string>
+    <string name="omni_privacy_counts">پنل‌های متصل: %1$d · pairingهای scoped فعال: %2$d</string>
+    <string name="omni_privacy_backup_note">کنترل‌های Backup و notification در صفحات واقعی فعلی باقی مانده‌اند. پیش از اشتراک‌گذاری، محتوای backup را بررسی کن.</string>
+    <string name="omni_privacy_revoke_all">لغو pairingهای فعال روی پنل‌ها</string>
+    <string name="omni_privacy_revoke_confirm">با هر پنل فعال جداگانه تماس گرفته می‌شود. درخواست ناموفق به‌صورت محلی paired می‌ماند و شکست حساب می‌شود؛ موفقیت آفلاین اعلام نمی‌شود.</string>
+    <string name="omni_privacy_forget_all">فراموشی همه‌ی tokenهای محلی pairing</string>
+    <string name="omni_privacy_forget_confirm">sessionهای scoped محلی، از جمله منقضی‌شده‌ها، پاک می‌شوند. با پنل تماس گرفته نمی‌شود و دسترسی سمت سرور revoke نمی‌شود.</string>
+    <string name="omni_privacy_empty">پنل متصل یا session scopedای وجود ندارد.</string>
+    <string name="omni_privacy_no_active_pairing">pairing scoped فعالی گزارش نشده؛ token منقضی ممکن است هنوز به Forget محلی نیاز داشته باشد.</string>
+    <string name="omni_privacy_scopes">قابلیت‌ها: %1$s</string>
+    <string name="omni_privacy_forget_local">فراموشی token محلی</string>
+    <string name="omni_privacy_load_failed">ذخیره‌ساز حریم خصوصی خوانده نشد؛ پاک‌سازی اعلام نمی‌شود.</string>
+    <string name="omni_privacy_no_pairings">pairing scoped فعالی برای این عمل وجود ندارد.</string>
+    <string name="omni_privacy_revoked">pairingهای فعال درخواست‌شده روی پنل‌ها revoke و به‌صورت محلی حذف شدند.</string>
+    <string name="omni_privacy_partial">بعضی revokeها ناموفق بودند. پنل‌های موفق محلی حذف شدند؛ پنل‌های ناموفق paired می‌مانند.</string>
+    <string name="omni_privacy_local_forgotten">پاک‌سازی tokenهای محلی pairing انجام شد. این عمل دسترسی سمت سرور را تغییر نداد.</string>
+    <string name="omni_privacy_forget_failed">یک یا چند ذخیره‌ساز token محلی به‌روزرسانی نشد؛ پاک‌سازی کامل اعلام نمی‌شود.</string>
 </resources>

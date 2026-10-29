@@ -174,6 +174,11 @@ class OmniHubRepository(context: Context) {
         store.scopedSession(panel.id)?.scopes ?: emptySet()
     }
 
+    /** Local-only erasure for expired/offline sessions; this never claims a server-side revoke. */
+    suspend fun forgetScopedSession(panel: OmniPanel): Unit = withContext(Dispatchers.IO) {
+        store.removeScopedSession(panel.id)
+    }
+
     /** Publishes only through the token-bound Scanner Pack route; no administrator fallback exists. */
     suspend fun publishScannerPack(panel: OmniPanel, profiles: List<ProfileItem>): OmniScannerPublishResult = withContext(Dispatchers.IO) {
         require(profiles.size <= 2000) { "Up to 2000 configurations are allowed" }
@@ -212,7 +217,8 @@ class OmniHubRepository(context: Context) {
     }
 
     suspend fun revokeScoped(panel: OmniPanel): Unit = withContext(Dispatchers.IO) {
-        val session = store.scopedSession(panel.id) ?: return@withContext
+        val session = store.scopedSession(panel.id)
+            ?: throw OmniHubException("No active scoped session exists; use local Forget if the token expired")
         val response = try {
             client.newCall(Request.Builder()
                 .url("${panel.baseUrl}/api/app/revoke")
