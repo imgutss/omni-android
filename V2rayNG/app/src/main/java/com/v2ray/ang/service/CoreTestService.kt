@@ -151,11 +151,25 @@ class CoreTestService : Service() {
             }
 
             is RealPingEvent.Result -> {
-                MmkvManager.encodeServerTestDelayMillis(event.guid, event.delayMillis)
+                MmkvManager.encodeServerTestResult(
+                    guid = event.guid,
+                    testResult = event.delayMillis,
+                    sampleCount = event.sampleCount,
+                    successfulSamples = event.successfulSamples,
+                    jitterMillis = event.jitterMillis,
+                    kind = event.kind,
+                )
                 MessageHelper.sendMsg2UI(
                     this,
                     AppConfig.MSG_MEASURE_CONFIG_SUCCESS,
-                    RealPingResult(event.guid, event.delayMillis),
+                    RealPingResult(
+                        guid = event.guid,
+                        delayMillis = event.delayMillis,
+                        sampleCount = event.sampleCount,
+                        successfulSamples = event.successfulSamples,
+                        jitterMillis = event.jitterMillis,
+                        kind = event.kind,
+                    ),
                     requestId,
                 )
             }

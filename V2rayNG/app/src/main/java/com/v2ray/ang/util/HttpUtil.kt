@@ -157,7 +157,7 @@ object HttpUtil {
             if (currentUrl == null) continue
             val client = buildOkHttpClient(request.timeout, request.httpPort, request.proxyUsername, request.proxyPassword, followRedirects = false)
             val finalUserAgent = if (request.userAgent.isNullOrBlank()) {
-                "v2rayNG/${BuildConfig.VERSION_NAME}"
+                "Omni/${BuildConfig.VERSION_NAME}"
             } else {
                 request.userAgent
             }
@@ -172,7 +172,8 @@ object HttpUtil {
 
             val headersMap = JsonUtil.parseHeadersToMap(request.requestHeaders)
             for ((key, value) in headersMap) {
-                LogUtil.d(AppConfig.TAG, "Adding custom header: $key = $value")
+                // Header values may contain subscription credentials; log only the field name.
+                LogUtil.d(AppConfig.TAG, "Adding custom header: $key")
                 try {
                     requestBuilder.header(key, value)
                 } catch (_: IllegalArgumentException) {
@@ -256,6 +257,13 @@ object HttpUtil {
         return builder.build()
     }
 
+    /** Keeps diagnostics useful without recording URL paths, queries or embedded credentials. */
+    private fun urlForLog(raw: String): String = runCatching {
+        val uri = URI(raw)
+        val port = if (uri.port >= 0) ":${uri.port}" else ""
+        "${uri.scheme}://${uri.host}$port"
+    }.getOrDefault("invalid-url")
+
     private fun resolveLocation(baseUrl: String, raw: String): String? {
         return try {
             val locUri = URI(raw)
@@ -292,7 +300,7 @@ object HttpUtil {
         return try {
             client.newCall(requestBuilder.build()).execute().use { response ->
                 if (!response.isSuccessful) {
-                    LogUtil.w(AppConfig.TAG, "Failed to download file, code=${response.code}, url=$url")
+                    LogUtil.w(AppConfig.TAG, "Failed to download file, code=${response.code}, url=${urlForLog(url)}")
                     return false
                 }
                 val body = response.body ?: return false
@@ -304,7 +312,7 @@ object HttpUtil {
                 true
             }
         } catch (e: Exception) {
-            LogUtil.e(AppConfig.TAG, "Failed to download file: $url", e)
+            LogUtil.e(AppConfig.TAG, "Failed to download file: ${urlForLog(url)}", e)
             false
         }
     }

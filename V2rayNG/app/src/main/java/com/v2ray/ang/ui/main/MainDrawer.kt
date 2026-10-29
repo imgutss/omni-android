@@ -37,6 +37,7 @@ enum class MainDestination(@DrawableRes val iconRes: Int, @StringRes val labelRe
     UserAssets(R.drawable.ic_file_24dp, R.string.title_user_asset_setting),
     Settings(R.drawable.ic_settings_24dp, R.string.title_settings),
     OmniPanel(R.drawable.ic_cloud_download_24dp, R.string.title_omni_panel),
+    OmniDoctor(R.drawable.ic_check_update_24dp, R.string.title_omni_doctor),
     Logcat(R.drawable.ic_logcat_24dp, R.string.title_logcat),
     CheckUpdate(R.drawable.ic_check_update_24dp, R.string.update_check_for_update),
     BackupRestore(R.drawable.ic_restore_24dp, R.string.title_configuration_backup_restore),
@@ -53,6 +54,7 @@ private val primaryDrawerItems = listOf(
 
 private val drawerItems = primaryDrawerItems + listOf(
     MainDestination.OmniPanel,
+    MainDestination.OmniDoctor,
     MainDestination.Logcat,
     MainDestination.CheckUpdate,
     MainDestination.BackupRestore,
@@ -85,10 +87,9 @@ fun MainDrawerContent(drawerState: DrawerState, onNavigate: (MainDestination) ->
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    // PattNG: full-color circular logo, no dark-mode tint (tinting a photo logo
-                    // would flatten it into a white disc)
+                    // Omni: keep the supplied neon artwork in full color; tinting it would flatten the brand mark.
                     Image(
-                        painter = painterResource(R.drawable.ic_pattng_logo),
+                        painter = painterResource(R.drawable.ic_omni_logo),
                         contentDescription = null,
                         modifier = Modifier.size(120.dp)
                     )

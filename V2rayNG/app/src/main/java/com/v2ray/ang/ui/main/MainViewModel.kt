@@ -47,26 +47,30 @@ import java.util.regex.PatternSyntaxException
 
 private fun applyTestDelayResults(
     servers: List<ServersCache>,
-    updates: Map<String, Long>,
+    updates: Map<String, RealPingResult>,
 ): List<ServersCache> = servers.map { server ->
-    val delayMillis = updates[server.guid]
-    if (delayMillis == null || delayMillis == server.testDelayMillis) {
-        server
-    } else {
-        server.copy(testDelayMillis = delayMillis)
-    }
+    val result = updates[server.guid] ?: return@map server
+    server.copy(
+        testDelayMillis = result.delayMillis,
+        testSampleCount = result.sampleCount,
+        testSuccessfulSamples = result.successfulSamples,
+        testJitterMillis = result.jitterMillis,
+        testKind = result.kind,
+    )
 }
 
 private fun applyTestDelayResultsToRows(
     rows: List<ServerRowUiModel>,
-    updates: Map<String, Long>,
+    updates: Map<String, RealPingResult>,
 ): List<ServerRowUiModel> = rows.map { row ->
-    val delayMillis = updates[row.guid]
-    if (delayMillis == null || delayMillis == row.testDelayMillis) {
-        row
-    } else {
-        row.copy(testDelayMillis = delayMillis)
-    }
+    val result = updates[row.guid] ?: return@map row
+    row.copy(
+        testDelayMillis = result.delayMillis,
+        testSampleCount = result.sampleCount,
+        testSuccessfulSamples = result.successfulSamples,
+        testJitterMillis = result.jitterMillis,
+        testKind = result.kind,
+    )
 }
 
 class MainViewModel(
@@ -137,7 +141,7 @@ class MainViewModel(
     private var selectedGroupLoadJob: Job? = null
     private var reloadJob: Job? = null
     private var testResultFlushJob: Job? = null
-    private val pendingTestResults = linkedMapOf<String, Long>()
+    private val pendingTestResults = linkedMapOf<String, RealPingResult>()
 
     private val testRequests = MainTestRequests()
     private var bulkTestJob: Job? = null
@@ -239,7 +243,7 @@ class MainViewModel(
     }
 
     private fun queueTestResult(result: RealPingResult, request: MainTestRequests.Bulk) {
-        pendingTestResults[result.guid] = result.delayMillis
+        pendingTestResults[result.guid] = result
         if (testResultFlushJob?.isActive == true) return
 
         testResultFlushJob = viewModelScope.launch {
@@ -287,7 +291,18 @@ class MainViewModel(
 
     private fun formatConnectionTestResult(result: ConnectionTestResult): String {
         val status = if (result.delayMillis >= 0) {
-            val delay = dataSource.getString(R.string.server_test_delay_value, result.delayMillis)
+            val delay = if (result.sampleCount > 0 && result.kind.isNotBlank()) {
+                dataSource.getString(
+                    R.string.server_test_delay_detailed_value,
+                    result.kind,
+                    result.delayMillis,
+                    result.successfulSamples,
+                    result.sampleCount,
+                    result.jitterMillis,
+                )
+            } else {
+                dataSource.getString(R.string.server_test_delay_value, result.delayMillis)
+            }
             dataSource.getString(R.string.connection_test_available, delay)
         } else {
             val detail = result.errorMessage.ifBlank {
@@ -412,7 +427,11 @@ class MainViewModel(
             ServersCache(
                 guid = guid,
                 profile = profile.copy(),
-                testDelayMillis = affiliation?.testDelayMillis ?: 0L
+                testDelayMillis = affiliation?.testDelayMillis ?: 0L,
+                testSampleCount = affiliation?.testSampleCount ?: 0,
+                testSuccessfulSamples = affiliation?.testSuccessfulSamples ?: 0,
+                testJitterMillis = affiliation?.testJitterMillis ?: 0L,
+                testKind = affiliation?.testKind.orEmpty(),
             )
         }
 

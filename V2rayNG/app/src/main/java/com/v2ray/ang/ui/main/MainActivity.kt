@@ -47,6 +47,8 @@ import com.v2ray.ang.ui.server.ServerVmessActivity
 import com.v2ray.ang.ui.server.ServerWireguardActivity
 import com.v2ray.ang.ui.settings.SettingsActivity
 import com.v2ray.ang.ui.subscription.SubSettingActivity
+import com.v2ray.ang.omni.OmniDoctorActivity
+import com.v2ray.ang.omni.OmniHubActivity
 import com.v2ray.ang.ui.userasset.UserAssetActivity
 import com.v2ray.ang.util.LogUtil
 import com.v2ray.ang.util.Utils
@@ -162,11 +164,8 @@ class MainActivity : HelperBaseComponentActivity() {
             MainDestination.CheckUpdate -> Intent(this, CheckUpdateActivity::class.java)
             MainDestination.BackupRestore -> Intent(this, BackupActivity::class.java)
             MainDestination.About -> Intent(this, AboutActivity::class.java)
-            MainDestination.OmniPanel -> {
-                // The VPN engine stays native; the panel is an explicit optional destination.
-                Utils.openUri(this, AppConfig.OMNI_PANEL_URL)
-                return
-            }
+            MainDestination.OmniPanel -> Intent(this, OmniHubActivity::class.java)
+            MainDestination.OmniDoctor -> Intent(this, OmniDoctorActivity::class.java)
         }
         settingsActivityLauncher.launch(intent)
     }

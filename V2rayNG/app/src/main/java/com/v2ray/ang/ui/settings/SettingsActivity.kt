@@ -174,6 +174,7 @@ fun SettingsScreen(
     var isBooted by rememberMmkvBool(AppConfig.PREF_IS_BOOTED, false)
     var delayTestUrl by rememberMmkvString(AppConfig.PREF_DELAY_TEST_URL, "")
     var realPingConcurrency by rememberMmkvString(AppConfig.PREF_REAL_PING_CONCURRENCY, "16")
+    var realPingSamples by rememberMmkvString(AppConfig.PREF_REAL_PING_SAMPLES, "3")
     var ipApiUrl by rememberMmkvString(AppConfig.PREF_IP_API_URL, "")
 
     val isVpn = mode == VPN
@@ -622,6 +623,12 @@ fun SettingsScreen(
                     value = realPingConcurrency,
                     keyboardNumber = true,
                     onValueChanged = { realPingConcurrency = it }
+                )
+                SettingsEditItem(
+                    title = stringResource(R.string.title_pref_real_ping_samples),
+                    value = realPingSamples,
+                    keyboardNumber = true,
+                    onValueChanged = { realPingSamples = it }
                 )
                 SettingsEditItem(
                     title = stringResource(R.string.title_pref_ip_api_url),

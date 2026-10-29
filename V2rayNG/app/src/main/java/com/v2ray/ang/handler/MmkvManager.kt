@@ -554,6 +554,25 @@ object MmkvManager {
      * @param testResult The test delay in milliseconds.
      */
     fun encodeServerTestDelayMillis(guid: String, testResult: Long) {
+        encodeServerTestResult(
+            guid = guid,
+            testResult = testResult,
+            sampleCount = 0,
+            successfulSamples = 0,
+            jitterMillis = 0L,
+            kind = "",
+        )
+    }
+
+    /** Persists the complete outcome of a real batch, not just its displayable median. */
+    fun encodeServerTestResult(
+        guid: String,
+        testResult: Long,
+        sampleCount: Int,
+        successfulSamples: Int,
+        jitterMillis: Long,
+        kind: String,
+    ) {
         if (guid.isBlank()) {
             return
         }
@@ -561,6 +580,10 @@ object MmkvManager {
         withTestResultLock {
             val aff = decodeServerAffiliationInfo(guid) ?: ServerAffiliationInfo()
             aff.testDelayMillis = testResult
+            aff.testSampleCount = sampleCount
+            aff.testSuccessfulSamples = successfulSamples
+            aff.testJitterMillis = jitterMillis
+            aff.testKind = kind
             if (!serverAffStorage.encode(guid, JsonUtil.toJson(aff))) {
                 LogUtil.e(TAG, "MmkvManager: the storage refused the test result of profile $guid")
             }
@@ -578,6 +601,10 @@ object MmkvManager {
             keys?.forEach { key ->
                 decodeServerAffiliationInfo(key)?.let { aff ->
                     aff.testDelayMillis = 0
+                    aff.testSampleCount = 0
+                    aff.testSuccessfulSamples = 0
+                    aff.testJitterMillis = 0
+                    aff.testKind = ""
                     if (!serverAffStorage.encode(key, JsonUtil.toJson(aff))) {
                         LogUtil.e(TAG, "MmkvManager: the storage refused the cleared test result of profile $key")
                     }

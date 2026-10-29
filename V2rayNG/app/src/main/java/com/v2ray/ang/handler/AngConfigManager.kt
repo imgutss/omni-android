@@ -505,7 +505,8 @@ object AngConfigManager {
                     return SubscriptionUpdateResult(failureCount = 1)
                 }
             }
-            LogUtil.i(AppConfig.TAG, url)
+            // Subscription URLs can contain bearer-like tokens; never write them to logcat.
+            LogUtil.i(AppConfig.TAG, "Subscription update started")
             val userAgent = it.subscription.userAgent
             val requestHeaders = it.subscription.requestHeaders
             val proxyUsername = SettingsManager.getSocksUsername()

@@ -482,6 +482,12 @@ object SettingsManager {
         return value.coerceIn(1, 128)
     }
 
+    /** Real HTTP samples after one excluded warm-up; never a cosmetic latency adjustment. */
+    fun getRealPingSamples(): Int {
+        val value = MmkvManager.decodeSettingsString(AppConfig.PREF_REAL_PING_SAMPLES)?.toIntOrNull() ?: 3
+        return value.coerceIn(1, 5)
+    }
+
     /**
      * Retrieves the currently selected VPN interface address configuration.
      * This method reads the user's preference for VPN interface addressing and returns

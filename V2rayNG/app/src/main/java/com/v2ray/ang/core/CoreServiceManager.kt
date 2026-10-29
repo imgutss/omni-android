@@ -31,6 +31,7 @@ import com.v2ray.ang.service.DialerNativeService
 import com.v2ray.ang.service.DialerWebviewService
 import com.v2ray.ang.service.NetworkMonitor
 import com.v2ray.ang.util.LogUtil
+import com.v2ray.ang.util.OmniPingStatistics
 import com.v2ray.ang.util.Utils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CancellationException
@@ -660,32 +661,53 @@ object CoreServiceManager {
                 return@launch
             }
 
-            var time = -1L
             var errorStr = ""
 
-            try {
-                time = coreController.measureDelay(SettingsManager.getDelayTestUrl())
-            } catch (e: Exception) {
-                LogUtil.e(AppConfig.TAG, "StartCore-Manager: Failed to measure delay", e)
-                errorStr = e.message?.substringAfter("\":").orEmpty()
-            }
-            if (time == -1L) {
-                ensureActive()
+            suspend fun measureOnce(): Long {
+                var value = -1L
                 try {
-                    time = coreController.measureDelay(SettingsManager.getDelayTestUrl(true))
+                    value = coreController.measureDelay(SettingsManager.getDelayTestUrl())
                 } catch (e: Exception) {
                     LogUtil.e(AppConfig.TAG, "StartCore-Manager: Failed to measure delay", e)
                     errorStr = e.message?.substringAfter("\":").orEmpty()
                 }
+                if (value == -1L) {
+                    ensureActive()
+                    try {
+                        value = coreController.measureDelay(SettingsManager.getDelayTestUrl(true))
+                    } catch (e: Exception) {
+                        LogUtil.e(AppConfig.TAG, "StartCore-Manager: Failed to measure delay", e)
+                        errorStr = e.message?.substringAfter("\":").orEmpty()
+                    }
+                }
+                return value
             }
 
+            // Exclude one warm-up, then retain every real outcome for an honest median and success count.
+            try {
+                measureOnce()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                // The independent samples below still provide evidence after a warm-up error.
+            }
+            val samples = mutableListOf<Long>()
+            repeat(SettingsManager.getRealPingSamples()) {
+                ensureActive()
+                samples += measureOnce()
+            }
+            val stats = OmniPingStatistics.summarize(samples, OmniPingStatistics.KIND_HTTP)
             ensureActive()
-            val endpoint = if (time >= 0) SpeedtestManager.getRemoteIPInfo() else null
+            val endpoint = if (stats.delayMillis >= 0) SpeedtestManager.getRemoteIPInfo() else null
             val result = ConnectionTestResult(
-                delayMillis = time,
+                delayMillis = stats.delayMillis,
                 errorMessage = errorStr,
                 country = endpoint?.country,
                 ipAddress = endpoint?.ipAddress,
+                sampleCount = stats.sampleCount,
+                successfulSamples = stats.successfulSamples,
+                jitterMillis = stats.jitterMillis,
+                kind = stats.kind,
             )
             withContext(Dispatchers.Main.immediate) {
                 if (isRunning()) {

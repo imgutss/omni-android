@@ -135,6 +135,12 @@
             android:name=".ui.settings.SettingsActivity"
             android:exported="false" />
         <activity
+            android:name=".omni.OmniHubActivity"
+            android:exported="false" />
+        <activity
+            android:name=".omni.OmniDoctorActivity"
+            android:exported="false" />
+        <activity
             android:name=".ui.perappproxy.PerAppProxyActivity"
             android:exported="false" />
         <activity
@@ -328,7 +334,7 @@
             android:name=".service.QSTileService"
             android:exported="true"
             android:foregroundServiceType="specialUse"
-            android:icon="@drawable/ic_stat_name"
+            android:icon="@drawable/ic_omni_stat"
             android:label="@string/app_tile_name"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
             android:process=":daemon">

@@ -27,7 +27,7 @@
     <string name="toast_services_failure">شروع سرویس با شکست مواجه شد</string>
 
     <!--ServerActivity-->
-    <string name="title_server">کانفیگ‌های Omni</string>
+    <string name="title_server">سرورهای Omni</string>
     <string name="menu_item_add_config">افزودن کانفیگ</string>
     <string name="menu_item_save_config">ذخیره کانفیگ</string>
     <string name="menu_item_edit_config">ویرایش کردن کانفیگ</string>
@@ -256,6 +256,7 @@
     <string name="title_pref_delay_test_url">URL آزمایش تأخیر واقعی</string>
     <string name="summary_pref_delay_test_url" translatable="false">URL</string>
     <string name="title_pref_real_ping_concurrency">آزمایش‌های هم‌زمان تأخیر واقعی</string>
+    <string name="title_pref_real_ping_samples">تعداد نمونه‌های HTTP واقعی (۱ تا ۵، پس از warm-up)</string>
 
     <string name="title_pref_ip_api_url">URL آزمایش اطلاعات اتصال فعلی</string>
     <string name="summary_pref_ip_api_url" translatable="false">URL</string>
@@ -363,7 +364,7 @@
     <string name="toast_invalid_override_port">پورت جایگزین نامعتبر است. عددی بین 1 تا 65535 وارد کنید.</string>
     <string name="title_sub_update">به‌روزرسانی گروه فعلی اشتراک</string>
     <string name="title_ping_all_server">آزمایش تأخیر TCP (TCPing)</string>
-    <string name="title_real_ping_all_server">آزمایش تأخیر واقعی</string>
+    <string name="title_real_ping_all_server">آزمایش تأخیر HTTP واقعی (میانهٔ نمونه‌ها)</string>
     <string name="title_user_asset_setting">فایل های منبع جغرافیایی</string>
     <string name="title_sort_by_test_results">مرتب‌سازی بر اساس نتایج آزمایش</string>
     <string name="title_filter_config">فیلتر کردن کانفیگ‌ها</string>
@@ -420,6 +421,9 @@
     <string name="connection_test_testing_count">تست کردن %d کانفیگ…</string>
     <string name="connection_test_available">اتصال در %1$s با موفقیت برقرار شد</string>
     <string name="server_test_delay_value">%1$d میلی‌ثانیه</string>
+    <string name="server_test_delay_detailed_value">%1$s %2$d میلی‌ثانیه · %3$d/%4$d · ±%5$d میلی‌ثانیه</string>
+    <string name="server_test_no_response">بدون پاسخ</string>
+    <string name="server_test_no_response_samples">هیچ پاسخی دریافت نشد؛ جزئیات نمونه‌ها در Doctor</string>
     <string name="connection_test_error">آزمایش اتصال ناموفق بود: %s</string>
     <string name="connection_test_fail">اینترنت در دسترس نیست</string>
     <string name="connection_test_error_status_code">کد خطا: #%d</string>
@@ -789,5 +793,5 @@
     <string name="sub_info_open_page">باز کردن صفحه اطلاعات اشتراک</string>
     <string name="sub_info_unlimited">نامحدود</string>
 
-    <string name="title_omni_panel">پنل Omni</string>
+    <string name="title_omni_panel">Omni Hub</string>
 </resources>

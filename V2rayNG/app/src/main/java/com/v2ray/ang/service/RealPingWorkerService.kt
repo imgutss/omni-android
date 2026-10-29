@@ -12,6 +12,8 @@ import com.v2ray.ang.extension.isNotNullEmpty
 import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.handler.SettingsManager
 import com.v2ray.ang.handler.SpeedtestManager
+import com.v2ray.ang.util.OmniPingStatistics
+import com.v2ray.ang.util.OmniPingStats
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
@@ -71,7 +73,16 @@ class RealPingWorkerService(
                 try {
                     val result = if (onlyTcp) startTcping(guid) else startRealPing(guid)
                     if (scope.isActive) {
-                        onEvent(RealPingEvent.Result(guid, result))
+                        onEvent(
+                            RealPingEvent.Result(
+                                guid = guid,
+                                delayMillis = result.delayMillis,
+                                sampleCount = result.sampleCount,
+                                successfulSamples = result.successfulSamples,
+                                jitterMillis = result.jitterMillis,
+                                kind = result.kind,
+                            )
+                        )
                     }
                 } catch (_: Throwable) {
                     // ignore
@@ -114,14 +125,16 @@ class RealPingWorkerService(
         }
     }
 
-    private suspend fun startRealPing(guid: String): Long {
-        val retFailure = -1L
+    private suspend fun startRealPing(guid: String): OmniPingStats {
+        val retFailure = OmniPingStats(-1L, 0, 0, 0L, OmniPingStatistics.KIND_HTTP)
 
         val config = MmkvManager.decodeServerConfig(guid) ?: return retFailure
         // An Aether profile is measured through its core alone, unless its subscription chains it with
         // other hops: then it is measured as the chain it runs in, as every chained profile is.
         if (config.configType == EConfigType.AETHER && !CoreConfigContextBuilder.isChained(config)) {
-            return AetherDelayTester.measure(context, guid, config, SettingsManager.getDelayTestUrl())
+            return measureRealSamples {
+                AetherDelayTester.measure(context, guid, config, SettingsManager.getDelayTestUrl())
+            }
         }
 
         val configResult = CoreConfigManager.getV2rayConfig4Speedtest(context, guid)
@@ -134,9 +147,11 @@ class RealPingWorkerService(
             // that core: the live session, or a test tunnel on the same port, which its Aether outbounds
             // dial either way, and which dials out through a hop of the chain, as the session's would.
             // Its own server is not probed: it is only reachable through that core.
-            return AetherDelayTester.measureVia(context, guid, aether, configResult.content) { _, _ ->
-                RealPingExecutionLimiter.run(config.configType) {
-                    CoreNativeManager.measureOutboundDelay(configResult.content, SettingsManager.getDelayTestUrl(), batch)
+            return measureRealSamples {
+                AetherDelayTester.measureVia(context, guid, aether, configResult.content) { _, _ ->
+                    RealPingExecutionLimiter.run(config.configType) {
+                        CoreNativeManager.measureOutboundDelay(configResult.content, SettingsManager.getDelayTestUrl(), batch)
+                    }
                 }
             }
         }
@@ -155,17 +170,43 @@ class RealPingWorkerService(
             }
         }
 
-        return RealPingExecutionLimiter.run(config.configType) {
-            CoreNativeManager.measureOutboundDelay(configResult.content, SettingsManager.getDelayTestUrl(), batch)
+        return measureRealSamples {
+            RealPingExecutionLimiter.run(config.configType) {
+                CoreNativeManager.measureOutboundDelay(configResult.content, SettingsManager.getDelayTestUrl(), batch)
+            }
         }
     }
 
-    private fun startTcping(guid: String): Long {
-        val retFailure = -1L
+    /** One warm-up is excluded; every reported number comes from the subsequent real samples. */
+    private suspend fun measureRealSamples(block: suspend () -> Long): OmniPingStats {
+        val attempts = SettingsManager.getRealPingSamples()
+        try {
+            block() // warm up the native/TLS path, never displayed as a result
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Throwable) {
+            // A warm-up failure must not hide the independent, measured attempts below.
+        }
+        val samples = mutableListOf<Long>()
+        repeat(attempts) {
+            if (!scope.isActive) return OmniPingStats(0L, samples.size, 0, 0L, OmniPingStatistics.KIND_HTTP)
+            samples += try {
+                block()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+                -1L
+            }
+        }
+        return OmniPingStatistics.summarize(samples, OmniPingStatistics.KIND_HTTP)
+    }
+
+    private fun startTcping(guid: String): OmniPingStats {
+        val retFailure = OmniPingStats(-1L, 0, 0, 0L, OmniPingStatistics.KIND_TCP)
 
         val config = MmkvManager.decodeServerConfig(guid) ?: return retFailure
         if (config.configType == EConfigType.AETHER) {
-            return AetherDelayTester.reachability(config)
+            return tcpStats(AetherDelayTester.reachability(config))
         }
         if (!config.configType.isComplexType()
             && config.configType != EConfigType.HYSTERIA2
@@ -178,9 +219,12 @@ class RealPingWorkerService(
             val port = config.serverPort.orEmpty().toInt()
             val tcpTime = SpeedtestManager.socketConnectTime(url, port, 1000)
 
-            return tcpTime
+            return tcpStats(tcpTime)
         }
 
         return retFailure
     }
+
+    private fun tcpStats(value: Long): OmniPingStats =
+        OmniPingStatistics.summarize(listOf(value), OmniPingStatistics.KIND_TCP)
 }

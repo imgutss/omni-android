@@ -27,7 +27,7 @@
     <string name="toast_services_failure">Failed to start service</string>
 
     <!--ServerActivity-->
-    <string name="title_server">Config</string>
+    <string name="title_server">Servers</string>
     <string name="menu_item_add_config">Add config</string>
     <string name="menu_item_save_config">Save config</string>
     <string name="menu_item_edit_config">Edit config</string>
@@ -259,6 +259,7 @@
     <string name="title_pref_delay_test_url">Real delay test URL</string>
     <string name="summary_pref_delay_test_url" translatable="false">URL</string>
     <string name="title_pref_real_ping_concurrency">Concurrent real-delay tests</string>
+    <string name="title_pref_real_ping_samples">Real HTTP samples (1–5, after warm-up)</string>
 
     <string name="title_pref_ip_api_url">Current connection info test URL</string>
     <string name="summary_pref_ip_api_url" translatable="false">URL</string>
@@ -366,7 +367,7 @@
     <string name="toast_invalid_override_port">Invalid override port. Use a value from 1 to 65535.</string>
     <string name="title_sub_update">Update subscription</string>
     <string name="title_ping_all_server">Test TCP delays (TCPing)</string>
-    <string name="title_real_ping_all_server">Test real delays</string>
+    <string name="title_real_ping_all_server">Test real HTTP delays (median of samples)</string>
     <string name="title_user_asset_setting">Asset files</string>
     <string name="title_sort_by_test_results">Sort by test results</string>
     <string name="title_filter_config">Filter configs</string>
@@ -423,6 +424,9 @@
     <string name="connection_test_testing_count">Testing %d configs…</string>
     <string name="connection_test_available">Connection succeeded in %1$s</string>
     <string name="server_test_delay_value">%1$d ms</string>
+    <string name="server_test_delay_detailed_value">%1$s %2$d ms · %3$d/%4$d · ±%5$d ms</string>
+    <string name="server_test_no_response">No response</string>
+    <string name="server_test_no_response_samples">No response; see Doctor for sample details</string>
     <string name="connection_test_error">Connection test failed: %s</string>
     <string name="connection_test_fail">Internet unavailable</string>
     <string name="connection_test_error_status_code">Error code: #%d</string>
@@ -797,5 +801,5 @@
     <string name="sub_info_traffic" translatable="false">%1$s / %2$s</string>
     <string name="sub_info_unlimited">Unlimited</string>
 
-    <string name="title_omni_panel">Omni panel</string>
+    <string name="title_omni_panel">Omni Hub</string>
 </resources>

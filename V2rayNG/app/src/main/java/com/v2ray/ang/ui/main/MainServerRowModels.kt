@@ -16,6 +16,10 @@ internal data class ServerRowUiModel(
     val statistics: String,
     val typeDescription: String,
     val testDelayMillis: Long,
+    val testSampleCount: Int = 0,
+    val testSuccessfulSamples: Int = 0,
+    val testJitterMillis: Long = 0L,
+    val testKind: String = "",
     val subscriptionBadge: String,
 )
 
@@ -38,6 +42,10 @@ internal fun buildServerRowUiModel(
             ?: AngConfigManager.generateDescription(profile),
         typeDescription = serverProtocolDescription(profile, aetherProtocolLabel),
         testDelayMillis = server.testDelayMillis,
+        testSampleCount = server.testSampleCount,
+        testSuccessfulSamples = server.testSuccessfulSamples,
+        testJitterMillis = server.testJitterMillis,
+        testKind = server.testKind,
         subscriptionBadge = subscriptionRemarks.firstOrNull()?.toString().orEmpty(),
     )
 }
