@@ -21,6 +21,10 @@ import java.net.URLDecoder
 
 class UrlSchemeActivity : BaseComponentActivity() {
 
+    private val OmniSchemes = setOf(
+        "vless", "vmess", "trojan", "ss", "hysteria2", "hy2", "tuic", "wireguard", "aether", "omni"
+    )
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         try {
@@ -32,22 +36,26 @@ class UrlSchemeActivity : BaseComponentActivity() {
                         }
                     }
                 } else if (action == Intent.ACTION_VIEW) {
-                    when (data?.host) {
-                        "install-config" -> {
-                            val uri: Uri? = intent.data
-                            val shareUrl = uri?.getQueryParameter("url").orEmpty()
-                            parseUri(shareUrl, uri?.fragment)
+                    val uri: Uri? = intent.data
+                    when {
+                        uri?.scheme == "v2rayng" && uri.host == "install-config" -> {
+                            parseUri(uri.getQueryParameter("url").orEmpty(), uri.fragment)
                         }
 
-                        "install-sub" -> {
-                            val uri: Uri? = intent.data
-                            val shareUrl = uri?.getQueryParameter("url").orEmpty()
-                            parseUri(shareUrl, uri?.fragment)
+                        uri?.scheme == "v2rayng" && uri.host == "install-sub" -> {
+                            parseUri(uri.getQueryParameter("url").orEmpty(), uri.fragment)
                         }
 
-                        else -> {
-                            toastError(R.string.toast_failure)
+                        uri?.scheme == "omni" && (uri.host == "install-config" || uri.host == "install-sub") -> {
+                            parseUri(uri.getQueryParameter("url").orEmpty(), uri.fragment)
                         }
+
+                        uri != null && uri.scheme in OmniSchemes -> {
+                            // vless://, aether://, ... go through the same batch importer as QR/clipboard.
+                            parseUri(uri.toString(), null)
+                        }
+
+                        else -> toastError(R.string.toast_failure)
                     }
                 }
             }

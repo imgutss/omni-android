@@ -1,25 +1,33 @@
-# PattNG
+# Omni Android
 
-v2rayNG fork for Iranians
+**Omni** — کلاینت واقعی VPN برای اندروید با برند Omni؛ نه WebView و نه شبیه‌ساز اتصال.
 
-**تغییرات v2rayNG:**
+این مخزن فورک اختصاصیِ [`patterniha/PattNG`](https://github.com/patterniha/PattNG) است که خود بر پایهٔ v2rayNG ساخته شده است. تاریخچه و لایسنس upstream حفظ شده‌اند.
 
-* اضافه شدن cipherSuites و فینگرپرینت unsafe در تنظیمات و شیرلینک.
+## موتور و قابلیت‌های واقعی
+- `VpnService` بومی و اتصال تمام‌صفحه/پروکسی محلی.
+- Xray-core از `AndroidLibXrayLite` (VLESS، VMess، Trojan، Shadowsocks، Hysteria2، WireGuard و …).
+- هستهٔ **Aether** برای WARP/MASQUE/ECH و قابلیت‌های ضد-DPI.
+- Psiphon و pluggable transport به‌عنوان لایه‌های پشتیبانِ خود upstream.
+- تست پینگ واقعی، زنجیرهٔ پروکسی، Policy Group و Fallback، Per-app proxy، Routing و Backup.
+- پشتیبانی از لینک مستقیم `vless://`، `vmess://`، `trojan://`، `ss://`، `aether://` و غیره از تلگرام/مرورگر.
 
-* اضافه شدن هسته‌ی aether
+## تغییرات Omni در شاخهٔ `omni`
+- نام، `applicationId = net.omnigate.app`، آیکون و پالت رنگ اختصاصی Omni.
+- پنل Omni به‌صورت یک مقصد اختیاری در منو؛ موتور VPN به پنل یا WebView وابسته نیست.
+- ورودی Deep-link برای کانفیگ‌ها و `omni://install-config?url=…`.
+- به‌روزرسانی‌یاب به Releaseهای همین مخزن وصل شده است.
+- ساخت CI با کلید امضای اختصاصی در GitHub Secrets؛ کلید خصوصی در سورس نیست.
 
-**تغییرات Xray-core:**
+> **وضعیت صادقانه:** APK این مخزن موتور اتصال واقعی دارد، اما اتصال موفق به سرورهای شما به معتبر بودن کانفیگ و در دسترس بودن زیرساخت بستگی دارد. خطای 403 صفحهٔ Worker نیز یک مسدودی سمت Cloudflare است و با تعویض رابط اپ حل نمی‌شود.
 
-* امکان اتصال به کانفیگ‌های غیر رمزنگاری شده برای آدرس‌های عمومی در VLESS و TROJAN
+## ساخت
+روش پیشنهادی: GitHub Actions → **Omni APK** روی شاخهٔ `omni`. زنجیرهٔ NDK/Rust/Go، Xray AAR، Aether، Psiphon و hev-socks5-tunnel را همان workflow می‌سازد و APKهای امضاشده را artifact می‌کند.
 
-## حمایت
+## منابع و لایسنس
+- [PattNG](https://github.com/patterniha/PattNG) — پایهٔ این فورک.
+- [v2rayNG](https://github.com/2dust/v2rayNG) — پروژهٔ مادر.
+- [Xray-core](https://github.com/XTLS/Xray-core) و [AndroidLibXrayLite](https://github.com/patterniha/AndroidLibXrayLite).
+- [Aether](https://github.com/patterniha/Aether)، [hev-socks5-tunnel](https://github.com/heiher/hev-socks5-tunnel).
 
-اگر کارهای بنده باعث دسترسی شما به اینترنت آزاد شده است ممنون میشم حمایتی هم از اینجانب انجام دهید
-
-`USDT (BEP20)`: 0x76a768B53Ca77B43086946315f0BDF21156bF424
-
-`USDT (TRC20)`: TU5gKvKqcXPn8itp1DouBCwcqGHMemBm8o
-
-`TON (TON)`: UQAc-mZB3y7uxWHKiMmq0ORZEYgycWDWZ4V1k73HsXvTJx-i
-
-@patterniha
+لایسنس GPL-3.0 و اطلاعات copyright فایل `LICENSE` حفظ شده است. سورس تغییرات Omni در همین مخزن عمومی است.
