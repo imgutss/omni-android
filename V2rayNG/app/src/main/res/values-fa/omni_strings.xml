@@ -336,4 +336,21 @@
     <string name="omni_privacy_partial">بعضی revokeها ناموفق بودند. پنل‌های موفق محلی حذف شدند؛ پنل‌های ناموفق paired می‌مانند.</string>
     <string name="omni_privacy_local_forgotten">پاک‌سازی tokenهای محلی pairing انجام شد. این عمل دسترسی سمت سرور را تغییر نداد.</string>
     <string name="omni_privacy_forget_failed">یک یا چند ذخیره‌ساز token محلی به‌روزرسانی نشد؛ پاک‌سازی کامل اعلام نمی‌شود.</string>
+
+    <string name="omni_scanner_samples">نمونه برای هر هدف (۱–۲۰؛ یک warm-up حذف می‌شود)</string>
+    <string name="omni_scanner_sni">TLS SNI / hostname (اختیاری)</string>
+    <string name="omni_scanner_host_header">HTTP Host header (اختیاری)</string>
+    <string name="omni_scanner_http_path">مسیر HTTP/WebSocket</string>
+    <string name="omni_scanner_mode_tcp">TCP</string>
+    <string name="omni_scanner_mode_tls">Handshake TLS</string>
+    <string name="omni_scanner_mode_http">شواهد HTTP</string>
+    <string name="omni_scanner_mode_websocket">Upgrade WebSocket</string>
+
+    <string name="omni_scanner_retest_all">آزمون دوباره همه ذخیره‌شده‌ها با core واقعی</string>
+    <string name="omni_scanner_built_rank">#%1$d · %2$s · %3$s</string>
+    <string name="omni_scanner_core_untested">core واقعی: آزمون دوباره انجام نشده</string>
+    <string name="omni_scanner_core_result">core واقعی: %1$d میلی‌ثانیه · %2$d/%3$d پاسخ · jitter %4$s میلی‌ثانیه</string>
+    <string name="omni_scanner_core_no_response">core واقعی: بدون پاسخ (%1$d/%2$d پاسخ)</string>
+    <string name="omni_scanner_retested">برای همه پیکربندی‌های ذخیره‌شده نتیجه core واقعی دریافت شد؛ رتبه‌بندی از همین نمونه‌ها استفاده می‌کند.</string>
+    <string name="omni_scanner_retest_failed">آزمون دوباره core واقعی کامل نشد؛ هیچ اتصالی ادعا نمی‌شود.</string>
 </resources>

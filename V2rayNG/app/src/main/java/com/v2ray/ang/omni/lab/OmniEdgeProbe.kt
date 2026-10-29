@@ -31,6 +31,9 @@ data class OmniProbeOptions(
         require(samples in 1..20) { "Samples must be between 1 and 20" }
         require(warmup in 0..5) { "Warm-up must be between 0 and 5" }
         require(connectTimeoutMs > 0 && readTimeoutMs > 0) { "Timeouts must be positive" }
+        require(httpPath.length <= 2_048 && httpPath.none { it == '\r' || it == '\n' || it == '\u0000' }) { "Invalid HTTP path" }
+        require((sni?.length ?: 0) <= 253 && sni?.none { it == '\r' || it == '\n' || it == '\u0000' } != false) { "Invalid SNI" }
+        require((hostHeader?.length ?: 0) <= 2_048 && hostHeader?.none { it == '\r' || it == '\n' || it == '\u0000' } != false) { "Invalid Host header" }
     }
 }
 
@@ -100,22 +103,15 @@ class OmniDefaultEdgeProbe : OmniEdgeProbe {
     }
 
     private fun httpObservation(target: OmniScanTarget, options: OmniProbeOptions): Observation {
-        val raw = Socket()
-        val socket = if (options.mode == OmniProbeMode.WEBSOCKET || target.port == DEFAULT_PORT) {
+        return Socket().use { raw ->
             raw.connect(InetSocketAddress(target.host, target.port), options.connectTimeoutMs)
-            raw
-        } else {
-            raw.connect(InetSocketAddress(target.host, target.port), options.connectTimeoutMs)
-            raw
-        }
-        return socket.use { connected ->
-            connected.soTimeout = options.readTimeoutMs
+            raw.soTimeout = options.readTimeoutMs
             val isTls = options.sni != null || target.port == DEFAULT_PORT
             val ioSocket = if (isTls) {
-                val tls = tlsSocket(connected, target, options)
+                val tls = tlsSocket(raw, target, options)
                 tls.startHandshake()
                 tls
-            } else connected
+            } else raw
             ioSocket.use { stream ->
                 val path = options.httpPath.ifBlank { "/" }.let { if (it.startsWith("/")) it else "/$it" }
                 val host = options.hostHeader?.takeIf { it.isNotBlank() } ?: target.host
@@ -125,8 +121,9 @@ class OmniDefaultEdgeProbe : OmniEdgeProbe {
                 val request = buildString {
                     append("GET ").append(path).append(" HTTP/1.1\r\n")
                     append("Host: ").append(host).append("\r\n")
-                    append("Connection: close\r\n")
-                    if (key != null) {
+                    if (key == null) {
+                        append("Connection: close\r\n")
+                    } else {
                         append("Upgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: ").append(key).append("\r\n")
                     }
                     append("\r\n")
@@ -152,8 +149,13 @@ class OmniDefaultEdgeProbe : OmniEdgeProbe {
 
     private fun tlsSocket(target: OmniScanTarget, options: OmniProbeOptions): SSLSocket {
         val socket = Socket()
-        socket.connect(InetSocketAddress(target.host, target.port), options.connectTimeoutMs)
-        return tlsSocket(socket, target, options)
+        return try {
+            socket.connect(InetSocketAddress(target.host, target.port), options.connectTimeoutMs)
+            tlsSocket(socket, target, options)
+        } catch (error: Exception) {
+            runCatching { socket.close() }
+            throw error
+        }
     }
 
     private fun tlsSocket(raw: Socket, target: OmniScanTarget, options: OmniProbeOptions): SSLSocket {

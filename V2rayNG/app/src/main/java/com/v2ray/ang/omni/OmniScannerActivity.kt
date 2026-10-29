@@ -6,13 +6,16 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
@@ -37,7 +40,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.activity.viewModels
 import com.v2ray.ang.R
+import com.v2ray.ang.omni.lab.OmniBuiltConfiguration
 import com.v2ray.ang.omni.lab.OmniEdgeProbeResult
+import com.v2ray.ang.omni.lab.OmniProbeMode
 import com.v2ray.ang.ui.base.BaseComponentActivity
 import com.v2ray.ang.ui.compose.AppTopBar
 import androidx.compose.foundation.selection.toggleable
@@ -64,6 +69,11 @@ class OmniScannerActivity : BaseComponentActivity() {
             onBack = { finish() },
             onTargets = model::updateTargets,
             onPorts = model::updatePorts,
+            onProbeMode = model::selectProbeMode,
+            onSamples = model::updateSamples,
+            onSni = model::updateSni,
+            onHostHeader = model::updateHostHeader,
+            onHttpPath = model::updateHttpPath,
             onConcurrency = model::updateConcurrency,
             onMaxTargets = model::updateMaxTargets,
             onTemplate = model::selectTemplate,
@@ -94,6 +104,11 @@ fun OmniScannerScreen(
     onBack: () -> Unit,
     onTargets: (String) -> Unit,
     onPorts: (String) -> Unit,
+    onProbeMode: (OmniProbeMode) -> Unit,
+    onSamples: (String) -> Unit,
+    onSni: (String) -> Unit,
+    onHostHeader: (String) -> Unit,
+    onHttpPath: (String) -> Unit,
     onConcurrency: (String) -> Unit,
     onMaxTargets: (String) -> Unit,
     onTemplate: (String) -> Unit,
@@ -123,6 +138,7 @@ fun OmniScannerScreen(
                     OutlinedTextField(
                         value = state.targetsInput,
                         onValueChange = onTargets,
+                        enabled = !state.scanning,
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 3,
                         label = { Text(stringResource(R.string.omni_scanner_targets)) },
@@ -131,14 +147,36 @@ fun OmniScannerScreen(
                     OutlinedTextField(
                         value = state.portsInput,
                         onValueChange = onPorts,
+                        enabled = !state.scanning,
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text(stringResource(R.string.omni_scanner_ports)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     )
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        items(OmniProbeMode.entries) { mode ->
+                            FilterChip(selected = state.probeMode == mode, onClick = { onProbeMode(mode) }, enabled = !state.scanning, label = { Text(probeModeText(mode)) })
+                        }
+                    }
+                    OutlinedTextField(
+                        value = state.samplesInput,
+                        onValueChange = onSamples,
+                        enabled = !state.scanning,
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(stringResource(R.string.omni_scanner_samples)) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    )
+                    if (state.probeMode != OmniProbeMode.TCP) {
+                        OutlinedTextField(value = state.sniInput, onValueChange = onSni, enabled = !state.scanning, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text(stringResource(R.string.omni_scanner_sni)) })
+                    }
+                    if (state.probeMode in setOf(OmniProbeMode.HTTP, OmniProbeMode.WEBSOCKET)) {
+                        OutlinedTextField(value = state.hostHeaderInput, onValueChange = onHostHeader, enabled = !state.scanning, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text(stringResource(R.string.omni_scanner_host_header)) })
+                        OutlinedTextField(value = state.httpPathInput, onValueChange = onHttpPath, enabled = !state.scanning, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text(stringResource(R.string.omni_scanner_http_path)) })
+                    }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(
                             value = state.concurrencyInput,
                             onValueChange = onConcurrency,
+                            enabled = !state.scanning,
                             modifier = Modifier.weight(1f),
                             label = { Text(stringResource(R.string.omni_scanner_concurrency)) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -146,6 +184,7 @@ fun OmniScannerScreen(
                         OutlinedTextField(
                             value = state.maxTargetsInput,
                             onValueChange = onMaxTargets,
+                            enabled = !state.scanning,
                             modifier = Modifier.weight(1f),
                             label = { Text(stringResource(R.string.omni_scanner_limit)) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -167,7 +206,7 @@ fun OmniScannerScreen(
                     state.message?.let { message ->
                         Text(
                             text = scannerMessageText(message, state.savedCount),
-                            color = if (message in setOf(OmniScannerMessage.SAVED, OmniScannerMessage.PUBLISHED, OmniScannerMessage.SYNCED)) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                            color = if (message in setOf(OmniScannerMessage.SAVED, OmniScannerMessage.PUBLISHED, OmniScannerMessage.SYNCED, OmniScannerMessage.RETESTED)) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                         )
                     }
                 }
@@ -177,13 +216,16 @@ fun OmniScannerScreen(
                     OutlinedButton(onClick = onBuild, enabled = !state.building && state.selectedEndpoints.isNotEmpty(), modifier = Modifier.weight(1f)) {
                         if (state.building) CircularProgressIndicator() else Text(stringResource(R.string.omni_scanner_build))
                     }
-                    Button(onClick = onSave, enabled = !state.saving && state.built.isNotEmpty(), modifier = Modifier.weight(1f)) {
+                    Button(onClick = onSave, enabled = !state.saving && !state.building && state.built.isNotEmpty(), modifier = Modifier.weight(1f)) {
                         if (state.saving) CircularProgressIndicator() else Text(stringResource(R.string.omni_scanner_save))
                     }
                 }
             }
             if (state.built.isNotEmpty()) {
                 item { Text(stringResource(R.string.omni_scanner_built, state.built.size), modifier = Modifier.padding(horizontal = 16.dp)) }
+                itemsIndexed(rankOmniBuiltConfigurations(state.built, state.builtPing), key = { _, built -> built.fingerprint }) { index, built ->
+                    OmniBuiltResultRow(index + 1, built, state.builtPing[built.fingerprint])
+                }
             }
             item {
                 OmniScannerPanelSection(state, onPanel, onPublish, onSync)
@@ -234,7 +276,7 @@ private fun OmniSpeedLabSection(
                     if (state.speedRunning) CircularProgressIndicator() else Text(stringResource(R.string.omni_scanner_speed_run))
                 }
                 OutlinedButton(onClick = onRetest, enabled = state.savedGuids.isNotEmpty() && !state.pingRunning, modifier = Modifier.weight(1f)) {
-                    Text(if (state.pingRunning) stringResource(R.string.omni_scanner_running) else stringResource(R.string.omni_scanner_retest))
+                    Text(if (state.pingRunning) stringResource(R.string.omni_scanner_running) else stringResource(R.string.omni_scanner_retest_all))
                 }
             }
             val noResponse = stringResource(R.string.omni_scanner_no_response)
@@ -262,7 +304,7 @@ private fun TemplatePicker(state: OmniScannerUiState, onTemplate: (String) -> Un
     val selectedName = selected?.profile?.remarks?.takeIf { it.isNotBlank() }
         ?: if (selected == null) stringResource(R.string.omni_scanner_choose_template) else stringResource(R.string.omni_scanner_unnamed_template)
     Column {
-        OutlinedButton(onClick = { expanded = true }, enabled = state.templates.isNotEmpty(), modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(onClick = { expanded = true }, enabled = state.templates.isNotEmpty() && !state.scanning, modifier = Modifier.fillMaxWidth()) {
             Text(selectedName)
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
@@ -275,6 +317,28 @@ private fun TemplatePicker(state: OmniScannerUiState, onTemplate: (String) -> Un
         }
     }
 }
+
+@Composable
+private fun OmniBuiltResultRow(index: Int, built: OmniBuiltConfiguration, ping: OmniBuiltPing?) {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+        Text(stringResource(R.string.omni_scanner_built_rank, index, built.target.endpointId, built.profile.configType.name), style = MaterialTheme.typography.titleSmall)
+        when {
+            ping == null -> Text(stringResource(R.string.omni_scanner_core_untested), style = MaterialTheme.typography.bodySmall)
+            ping.successful -> Text(stringResource(R.string.omni_scanner_core_result, ping.delayMs ?: 0L, ping.successfulSamples, ping.sampleCount, ping.jitterMs?.toString() ?: stringResource(R.string.omni_scanner_no_response)), style = MaterialTheme.typography.bodySmall)
+            else -> Text(stringResource(R.string.omni_scanner_core_no_response, ping.successfulSamples, ping.sampleCount), style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+@Composable
+private fun probeModeText(mode: OmniProbeMode): String = stringResource(
+    when (mode) {
+        OmniProbeMode.TCP -> R.string.omni_scanner_mode_tcp
+        OmniProbeMode.TLS -> R.string.omni_scanner_mode_tls
+        OmniProbeMode.HTTP -> R.string.omni_scanner_mode_http
+        OmniProbeMode.WEBSOCKET -> R.string.omni_scanner_mode_websocket
+    },
+)
 
 @Composable
 private fun OmniScannerResultRow(result: OmniEdgeProbeResult, selected: Boolean, onToggle: () -> Unit) {
@@ -293,6 +357,7 @@ private fun OmniScannerResultRow(result: OmniEdgeProbeResult, selected: Boolean,
             Text(result.target.endpointId, style = MaterialTheme.typography.titleSmall)
             Text(stringResource(R.string.omni_scanner_metrics, result.stats.succeeded, result.stats.attempted, result.stats.medianMs?.toString() ?: stringResource(R.string.omni_scanner_no_response), result.stats.jitterMs?.toString() ?: stringResource(R.string.omni_scanner_no_response)))
             result.evidence?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+            result.error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
         }
     }
 }
@@ -381,4 +446,6 @@ private fun scannerMessageText(message: OmniScannerMessage, savedCount: Int): St
     OmniScannerMessage.SYNC_FAILED -> stringResource(R.string.omni_scanner_sync_failed)
     OmniScannerMessage.SYNCED -> stringResource(R.string.omni_scanner_synced)
     OmniScannerMessage.SCAN_FAILED -> stringResource(R.string.omni_scanner_scan_failed)
+    OmniScannerMessage.RETESTED -> stringResource(R.string.omni_scanner_retested)
+    OmniScannerMessage.RETEST_FAILED -> stringResource(R.string.omni_scanner_retest_failed)
 }

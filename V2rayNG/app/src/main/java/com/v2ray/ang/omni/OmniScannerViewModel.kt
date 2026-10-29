@@ -14,6 +14,8 @@ import com.v2ray.ang.omni.lab.OmniBuiltConfiguration
 import com.v2ray.ang.omni.lab.OmniEdgeProbeResult
 import com.v2ray.ang.omni.lab.OmniEndpointConfigFactory
 import com.v2ray.ang.omni.lab.OmniScanOptions
+import com.v2ray.ang.omni.lab.OmniProbeMode
+import com.v2ray.ang.omni.lab.OmniProbeOptions
 import com.v2ray.ang.omni.lab.OmniScanRunner
 import com.v2ray.ang.omni.lab.OmniTargetParser
 import com.v2ray.ang.omni.lab.rankByEdgeQuality
@@ -28,11 +30,16 @@ import kotlinx.coroutines.withContext
 
 private const val MAX_SCAN_TARGETS = 100_000
 
-enum class OmniScannerMessage { INVALID_INPUT, NO_TEMPLATE, NO_SELECTION, BUILD_EMPTY, SAVED, SAVE_FAILED, NO_SAVED, SPEED_FAILED, NO_PANEL, PUBLISH_FAILED, PUBLISHED, SYNC_FAILED, SYNCED, SCAN_FAILED }
+enum class OmniScannerMessage { INVALID_INPUT, NO_TEMPLATE, NO_SELECTION, BUILD_EMPTY, SAVED, SAVE_FAILED, NO_SAVED, SPEED_FAILED, NO_PANEL, PUBLISH_FAILED, PUBLISHED, SYNC_FAILED, SYNCED, SCAN_FAILED, RETESTED, RETEST_FAILED }
 
 data class OmniScannerUiState(
     val targetsInput: String = "1.1.1.1",
     val portsInput: String = "443",
+    val probeMode: OmniProbeMode = OmniProbeMode.TCP,
+    val samplesInput: String = "3",
+    val sniInput: String = "",
+    val hostHeaderInput: String = "",
+    val httpPathInput: String = "/",
     val concurrencyInput: String = "24",
     val maxTargetsInput: String = "1000",
     val templates: List<OmniScannerTemplate> = emptyList(),
@@ -49,6 +56,8 @@ data class OmniScannerUiState(
     val message: OmniScannerMessage? = null,
     val savedCount: Int = 0,
     val savedGuids: List<String> = emptyList(),
+    val savedGuidToFingerprint: Map<String, String> = emptyMap(),
+    val builtPing: Map<String, OmniBuiltPing> = emptyMap(),
     val downloadUrlInput: String = "https://speed.cloudflare.com/__down?bytes=4194304",
     val uploadUrlInput: String = "",
     val speedRunning: Boolean = false,
@@ -91,17 +100,26 @@ class OmniScannerViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
-    fun updateTargets(value: String) = mutableState.update { it.copy(targetsInput = value, message = null) }
-    fun updatePorts(value: String) = mutableState.update { it.copy(portsInput = value, message = null) }
-    fun updateConcurrency(value: String) = mutableState.update { it.copy(concurrencyInput = value, message = null) }
-    fun updateMaxTargets(value: String) = mutableState.update { it.copy(maxTargetsInput = value, message = null) }
+    fun updateTargets(value: String) = updateScanInput { it.copy(targetsInput = value) }
+    fun updatePorts(value: String) = updateScanInput { it.copy(portsInput = value) }
+    fun selectProbeMode(mode: OmniProbeMode) = updateScanInput { it.copy(probeMode = mode) }
+    fun updateSamples(value: String) = updateScanInput { it.copy(samplesInput = value) }
+    fun updateSni(value: String) = updateScanInput { it.copy(sniInput = value) }
+    fun updateHostHeader(value: String) = updateScanInput { it.copy(hostHeaderInput = value) }
+    fun updateHttpPath(value: String) = updateScanInput { it.copy(httpPathInput = value) }
+    fun updateConcurrency(value: String) = updateScanInput { it.copy(concurrencyInput = value) }
+    fun updateMaxTargets(value: String) = updateScanInput { it.copy(maxTargetsInput = value) }
     fun updateDownloadUrl(value: String) = mutableState.update { it.copy(downloadUrlInput = value, connectivity = null, transfer = null, message = null) }
     fun updateUploadUrl(value: String) = mutableState.update { it.copy(uploadUrlInput = value, connectivity = null, transfer = null, message = null) }
-    fun selectTemplate(guid: String) = mutableState.update { it.copy(selectedTemplateGuid = guid, message = null) }
-    fun selectPanel(panelId: String) = mutableState.update { it.copy(selectedPanelId = panelId, message = null) }
+    fun selectTemplate(guid: String) {
+        val state = mutableState.value
+        if (!state.scanning && !state.speedRunning && !state.pingRunning) mutableState.update { clearBuiltEvidence(it.copy(selectedTemplateGuid = guid, message = null)) }
+    }
+    fun selectPanel(panelId: String) = mutableState.update { it.copy(selectedPanelId = panelId, published = null, message = null) }
 
     fun startScan() {
-        if (mutableState.value.scanning) return
+        val initial = mutableState.value
+        if (initial.scanning || initial.speedRunning || initial.pingRunning) return
         scanJob = viewModelScope.launch {
             val current = mutableState.value
             val ports = runCatching { OmniTargetParser.parsePorts(current.portsInput) }.getOrElse {
@@ -111,7 +129,9 @@ class OmniScannerViewModel(application: Application) : AndroidViewModel(applicat
                 ?.takeIf { it in 1L..128L }?.toInt()
             val maxTargets = OmniTargetParser.parseCount(current.maxTargetsInput)
                 ?.takeIf { it in 1L..MAX_SCAN_TARGETS.toLong() }?.toInt()
-            if (concurrency == null || maxTargets == null) {
+            val samples = OmniTargetParser.parseCount(current.samplesInput)
+                ?.takeIf { it in 1L..20L }?.toInt()
+            if (concurrency == null || maxTargets == null || samples == null || !validProbeText(current.sniInput) || !validProbeText(current.hostHeaderInput) || !validProbeText(current.httpPathInput)) {
                 mutableState.update { it.copy(message = OmniScannerMessage.INVALID_INPUT) }; return@launch
             }
             val plan = withContext(Dispatchers.Default) { OmniTargetParser.parse(current.targetsInput) }
@@ -120,7 +140,7 @@ class OmniScannerViewModel(application: Application) : AndroidViewModel(applicat
             }
             val plannedProbes = plan.plannedProbeCount(ports)
             mutableState.update {
-                it.copy(
+                clearBuiltEvidence(it).copy(
                     plannedTargets = minOf(plan.targetCount, maxTargets.toLong()),
                     plannedProbes = minOf(plannedProbes, maxTargets.toLong()),
                     invalidTargets = plan.invalid.size,
@@ -129,7 +149,22 @@ class OmniScannerViewModel(application: Application) : AndroidViewModel(applicat
                 )
             }
             try {
-                runner.scan(plan, OmniScanOptions(ports, concurrency, maxTargets)).collect { result ->
+                runner.scan(
+                plan,
+                OmniScanOptions(
+                    ports = ports,
+                    concurrency = concurrency,
+                    maxTargets = maxTargets,
+                    probe = OmniProbeOptions(
+                        mode = current.probeMode,
+                        samples = samples,
+                        warmup = 1,
+                        sni = current.sniInput.trim().takeIf { it.isNotEmpty() },
+                        hostHeader = current.hostHeaderInput.trim().takeIf { it.isNotEmpty() },
+                        httpPath = current.httpPathInput.trim().ifBlank { "/" },
+                    ),
+                ),
+            ).collect { result ->
                     val ranked = withContext(Dispatchers.Default) { (mutableState.value.results + result).rankByEdgeQuality() }
                     mutableState.update { state -> state.copy(results = ranked) }
                 }
@@ -160,6 +195,7 @@ class OmniScannerViewModel(application: Application) : AndroidViewModel(applicat
 
     fun buildSelected() {
         val current = mutableState.value
+        if (current.building || current.saving || current.speedRunning || current.pingRunning) return
         val template = current.templates.firstOrNull { it.guid == current.selectedTemplateGuid }?.profile
         if (template == null) {
             mutableState.update { it.copy(message = OmniScannerMessage.NO_TEMPLATE) }; return
@@ -169,7 +205,7 @@ class OmniScannerViewModel(application: Application) : AndroidViewModel(applicat
             mutableState.update { it.copy(message = OmniScannerMessage.NO_SELECTION) }; return
         }
         viewModelScope.launch {
-            mutableState.update { it.copy(building = true, message = null) }
+            mutableState.update { clearBuiltEvidence(it).copy(building = true, message = null) }
             try {
                 val built = withContext(Dispatchers.Default) { OmniEndpointConfigFactory.buildBatch(template, selected, OmniBuildOptions()) }
                 mutableState.update { it.copy(building = false, built = built, message = if (built.isEmpty()) OmniScannerMessage.BUILD_EMPTY else null) }
@@ -182,8 +218,9 @@ class OmniScannerViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     fun saveBuilt() {
-        if (mutableState.value.saving) return
-        val built = mutableState.value.built
+        val current = mutableState.value
+        if (current.saving || current.building || current.speedRunning || current.pingRunning) return
+        val built = current.built
         if (built.isEmpty()) {
             mutableState.update { it.copy(message = OmniScannerMessage.BUILD_EMPTY) }; return
         }
@@ -191,7 +228,16 @@ class OmniScannerViewModel(application: Application) : AndroidViewModel(applicat
             mutableState.update { it.copy(saving = true, message = null) }
             try {
                 val ids = repository.saveBuilt(built)
-                mutableState.update { it.copy(saving = false, savedCount = ids.size, savedGuids = ids, message = OmniScannerMessage.SAVED) }
+                mutableState.update {
+                    it.copy(
+                        saving = false,
+                        savedCount = ids.size,
+                        savedGuids = ids,
+                        savedGuidToFingerprint = ids.mapIndexedNotNull { index, guid -> built.getOrNull(index)?.fingerprint?.let { fingerprint -> guid to fingerprint } }.toMap(),
+                        builtPing = emptyMap(),
+                        message = OmniScannerMessage.SAVED,
+                    )
+                }
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
@@ -253,7 +299,7 @@ class OmniScannerViewModel(application: Application) : AndroidViewModel(applicat
         if (!isHttpUrl(downloadUrl) || (uploadUrl != null && !isHttpUrl(uploadUrl))) {
             mutableState.update { it.copy(message = OmniScannerMessage.INVALID_INPUT) }; return
         }
-        if (current.speedRunning) return
+        if (current.speedRunning || current.pingRunning) return
         viewModelScope.launch {
             mutableState.update { it.copy(speedRunning = true, connectivity = null, transfer = null, message = null) }
             try {
@@ -282,29 +328,79 @@ class OmniScannerViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     fun retestSavedThroughCore() {
-        val guid = mutableState.value.savedGuids.firstOrNull()
-        if (guid == null) {
+        val current = mutableState.value
+        val guids = current.savedGuids
+        if (guids.isEmpty()) {
             mutableState.update { it.copy(message = OmniScannerMessage.NO_SAVED) }; return
         }
-        if (mutableState.value.pingRunning) return
-        mutableState.update { it.copy(pingRunning = true, pingDelayMs = null, pingSamples = 0, pingSuccesses = 0, pingJitterMs = null) }
-        val worker = RealPingWorkerService(getApplication(), listOf(guid)) { event ->
+        if (current.pingRunning || current.speedRunning) return
+        mutableState.update {
+            it.copy(
+                pingRunning = true,
+                builtPing = emptyMap(),
+                pingDelayMs = null,
+                pingSamples = 0,
+                pingSuccesses = 0,
+                pingJitterMs = null,
+                message = null,
+            )
+        }
+        val worker = RealPingWorkerService(getApplication(), guids) { event ->
             when (event) {
-                is RealPingEvent.Result -> mutableState.update {
-                    it.copy(
-                        pingDelayMs = event.delayMillis.takeIf { delay -> delay >= 0L },
-                        pingSamples = event.sampleCount,
-                        pingSuccesses = event.successfulSamples,
-                        pingJitterMs = event.jitterMillis.takeIf { delay -> delay >= 0L },
+                is RealPingEvent.Result -> {
+                    val ping = OmniBuiltPing(
+                        delayMs = event.delayMillis.takeIf { it > 0L && event.successfulSamples > 0 },
+                        sampleCount = event.sampleCount,
+                        successfulSamples = event.successfulSamples,
+                        jitterMs = event.jitterMillis.takeIf { it >= 0L && event.successfulSamples > 0 },
                     )
+                    mutableState.update { state ->
+                        val fingerprint = state.savedGuidToFingerprint[event.guid]
+                        val isFirst = event.guid == state.savedGuids.firstOrNull()
+                        state.copy(
+                            builtPing = if (fingerprint == null) state.builtPing else state.builtPing + (fingerprint to ping),
+                            pingDelayMs = if (isFirst) ping.delayMs else state.pingDelayMs,
+                            pingSamples = if (isFirst) ping.sampleCount else state.pingSamples,
+                            pingSuccesses = if (isFirst) ping.successfulSamples else state.pingSuccesses,
+                            pingJitterMs = if (isFirst) ping.jitterMs else state.pingJitterMs,
+                        )
+                    }
                 }
-                is RealPingEvent.Finish -> mutableState.update { it.copy(pingRunning = false) }
+                is RealPingEvent.Finish -> mutableState.update { state ->
+                    val complete = state.savedGuidToFingerprint.size == state.savedGuids.size && state.builtPing.size == state.savedGuids.size
+                    state.copy(pingRunning = false, message = if (complete) OmniScannerMessage.RETESTED else OmniScannerMessage.RETEST_FAILED)
+                }
                 is RealPingEvent.Progress -> Unit
             }
         }
         pingWorker = worker
         worker.start()
     }
+
+    private fun updateScanInput(change: (OmniScannerUiState) -> OmniScannerUiState) {
+        val state = mutableState.value
+        if (state.scanning || state.speedRunning || state.pingRunning) return
+        mutableState.update { current ->
+            clearBuiltEvidence(change(current)).copy(results = emptyList(), selectedEndpoints = emptySet(), message = null)
+        }
+    }
+
+    private fun clearBuiltEvidence(state: OmniScannerUiState): OmniScannerUiState = state.copy(
+        built = emptyList(),
+        savedCount = 0,
+        savedGuids = emptyList(),
+        savedGuidToFingerprint = emptyMap(),
+        builtPing = emptyMap(),
+        published = null,
+        connectivity = null,
+        transfer = null,
+        pingDelayMs = null,
+        pingSamples = 0,
+        pingSuccesses = 0,
+        pingJitterMs = null,
+    )
+
+    private fun validProbeText(value: String): Boolean = value.length <= 2_048 && value.none { it == '\r' || it == '\n' || it == '\u0000' }
 
     private fun isHttpUrl(value: String): Boolean = value.startsWith("https://", ignoreCase = true) || value.startsWith("http://", ignoreCase = true)
 
