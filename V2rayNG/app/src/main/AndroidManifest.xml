@@ -150,6 +150,10 @@
             android:windowSoftInputMode="stateUnchanged|adjustResize"
             android:exported="false" />
         <activity
+            android:name=".omni.OmniSyncCenterActivity"
+            android:windowSoftInputMode="stateUnchanged|adjustResize"
+            android:exported="false" />
+        <activity
             android:name=".ui.perappproxy.PerAppProxyActivity"
             android:exported="false" />
         <activity

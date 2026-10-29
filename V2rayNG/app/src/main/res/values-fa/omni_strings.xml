@@ -178,4 +178,23 @@
     <string name="omni_config_share_failed">اشتراک‌گذاری ناموفق بود؛ کانفیگی کپی نشد.</string>
     <string name="omni_config_shared">کانفیگ با formatter فعلی کپی شد.</string>
     <string name="omni_config_ping_failed">پینگ واقعی ناموفق بود یا نتیجه‌ای نداشت؛ هیچ latencyای اعلام نمی‌شود.</string>
+
+    <string name="omni_sync_title">مرکز سینک اومنی</string>
+    <string name="omni_sync_subtitle">سینک واقعی subscription و بررسی سلامت پنل را اجرا کن. نتیجه‌ی هر پنل جداست و پنل ناموفق هرگز synchronized حساب نمی‌شود.</string>
+    <string name="omni_sync_selected">%1$d از %2$d پنل انتخاب شده</string>
+    <string name="omni_sync_selected_action">سینک انتخاب‌شده‌ها</string>
+    <string name="omni_sync_check_selected">بررسی انتخاب‌شده‌ها</string>
+    <string name="omni_sync_all">سینک همه</string>
+    <string name="omni_sync_check_all">بررسی همه</string>
+    <string name="omni_sync_toggle_all">انتخاب یا لغو انتخاب همه</string>
+    <string name="omni_sync_manage_panels">مدیریت پنل‌ها</string>
+    <string name="omni_sync_empty">هنوز پنل متعلق به شما متصل نیست. ابتدا در Omni Panel یک پنل اضافه کن.</string>
+    <string name="omni_sync_load_failed">وضعیت پنل بارگذاری نشد؛ هیچ نتیجه‌ی سینکی اعلام نمی‌شود.</string>
+    <string name="omni_sync_no_selection">ابتدا دست‌کم یک پنل را انتخاب کن.</string>
+    <string name="omni_sync_partial">پایان یافت؛ یک یا چند عملیات پنل ناموفق بود. جزئیات هر ردیف را ببین.</string>
+    <string name="omni_sync_all_succeeded">همه‌ی عملیات‌های درخواست‌شده‌ی پنل موفق بودند.</string>
+    <string name="omni_sync_result_failed">ناموفق: %1$s</string>
+    <string name="omni_sync_no_detail">بدون جزئیات</string>
+    <string name="omni_sync_result_success">سینک موفق: %1$d کانفیگ دریافت شد.</string>
+    <string name="omni_sync_check_result_success">بررسی سلامت موفق: %1$s</string>
 </resources>

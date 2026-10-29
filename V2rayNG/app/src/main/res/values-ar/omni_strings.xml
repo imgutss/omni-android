@@ -103,4 +103,23 @@
     <string name="omni_config_share_failed">Share failed; no configuration was copied.</string>
     <string name="omni_config_shared">Configuration copied using the existing formatter.</string>
     <string name="omni_config_ping_failed">Real ping failed or returned no result; no latency is claimed.</string>
+
+    <string name="omni_sync_title">Omni Sync Center</string>
+    <string name="omni_sync_subtitle">Run real subscription sync and panel health checks. Each panel reports its own result; a failed panel is never counted as synchronized.</string>
+    <string name="omni_sync_selected">%1$d of %2$d panels selected</string>
+    <string name="omni_sync_selected_action">Sync selected</string>
+    <string name="omni_sync_check_selected">Check selected</string>
+    <string name="omni_sync_all">Sync all</string>
+    <string name="omni_sync_check_all">Check all</string>
+    <string name="omni_sync_toggle_all">Select or clear all</string>
+    <string name="omni_sync_manage_panels">Manage panels</string>
+    <string name="omni_sync_empty">No user-owned panels are connected. Add one in Omni Panel first.</string>
+    <string name="omni_sync_load_failed">Panel state could not be loaded; no sync result is claimed.</string>
+    <string name="omni_sync_no_selection">Select at least one panel first.</string>
+    <string name="omni_sync_partial">Finished with one or more failed panel operations. Open each row for evidence.</string>
+    <string name="omni_sync_all_succeeded">All requested panel operations succeeded.</string>
+    <string name="omni_sync_result_failed">Failed: %1$s</string>
+    <string name="omni_sync_no_detail">no detail</string>
+    <string name="omni_sync_result_success">Sync succeeded: %1$d configurations received.</string>
+    <string name="omni_sync_check_result_success">Health check succeeded: %1$s</string>
 </resources>
