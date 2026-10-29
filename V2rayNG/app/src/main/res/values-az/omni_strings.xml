@@ -73,4 +73,34 @@
     <string name="omni_hub_report_device">Send device report</string>
     <string name="omni_hub_device_reported">Device report sent with app and OS metadata only.</string>
     <string name="omni_hub_device_report_note">Device report contains app version, device model and Android version; no configurations or tokens.</string>
+
+    <string name="omni_config_title">Omni Config Manager</string>
+    <string name="omni_config_subtitle">Manage the profiles already stored by the app. Optimize opens the real scanner with the selected profile as its template and saves new profiles without overwriting the original.</string>
+    <string name="omni_config_search">Search name, endpoint, protocol or GUID</string>
+    <string name="omni_config_refresh">Refresh profiles</string>
+    <string name="omni_config_ping">Real ping</string>
+    <string name="omni_config_optimize">Optimize in Scanner</string>
+    <string name="omni_config_share">Share</string>
+    <string name="omni_config_delete">Delete</string>
+    <string name="omni_config_delete_title">Delete selected configuration?</string>
+    <string name="omni_config_delete_confirm">This removes the local profile through the existing profile store. It does not change your panel.</string>
+    <string name="omni_config_empty">No configurations are stored yet.</string>
+    <string name="omni_config_no_matches">No configurations match this filter.</string>
+    <string name="omni_config_unnamed">Unnamed configuration</string>
+    <string name="omni_config_no_endpoint">not set</string>
+    <string name="omni_config_endpoint">Endpoint: %1$s:%2$s</string>
+    <string name="omni_config_untested">Ping: untested</string>
+    <string name="omni_config_no_response">no response</string>
+    <string name="omni_config_ping_metrics">Real ping: %1$d/%2$d successful · median %3$d ms · jitter %4$s ms</string>
+    <string name="omni_config_filter_all">All</string>
+    <string name="omni_config_filter_vless">VLESS</string>
+    <string name="omni_config_filter_vmess">VMess</string>
+    <string name="omni_config_filter_trojan">Trojan</string>
+    <string name="omni_config_filter_other">Other</string>
+    <string name="omni_config_load_failed">Profiles could not be loaded; no list update is claimed.</string>
+    <string name="omni_config_delete_failed">Delete failed; the profile was not reported as removed.</string>
+    <string name="omni_config_deleted">Configuration deleted locally.</string>
+    <string name="omni_config_share_failed">Share failed; no configuration was copied.</string>
+    <string name="omni_config_shared">Configuration copied using the existing formatter.</string>
+    <string name="omni_config_ping_failed">Real ping failed or returned no result; no latency is claimed.</string>
 </resources>

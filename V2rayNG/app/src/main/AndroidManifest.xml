@@ -146,6 +146,10 @@
             android:windowSoftInputMode="stateUnchanged|adjustResize"
             android:exported="false" />
         <activity
+            android:name=".omni.OmniConfigManagerActivity"
+            android:windowSoftInputMode="stateUnchanged|adjustResize"
+            android:exported="false" />
+        <activity
             android:name=".ui.perappproxy.PerAppProxyActivity"
             android:exported="false" />
         <activity

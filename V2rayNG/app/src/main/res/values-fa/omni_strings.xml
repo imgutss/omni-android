@@ -148,4 +148,34 @@
     <string name="omni_hub_report_device">ارسال گزارش دستگاه</string>
     <string name="omni_hub_device_reported">گزارش دستگاه فقط با فرادادهٔ برنامه و سیستم‌عامل ارسال شد.</string>
     <string name="omni_hub_device_report_note">گزارش دستگاه فقط نسخهٔ برنامه، مدل دستگاه و نسخهٔ اندروید را دارد؛ بدون کانفیگ یا توکن.</string>
+
+    <string name="omni_config_title">مدیریت کانفیگ اومنی</string>
+    <string name="omni_config_subtitle">پروفایل‌های ذخیره‌شده در برنامه را مدیریت کن. Optimize اسکنر واقعی را با همان کانفیگ به‌عنوان template باز می‌کند و پروفایل جدید می‌سازد؛ اصل کانفیگ overwritten نمی‌شود.</string>
+    <string name="omni_config_search">جست‌وجوی نام، endpoint، پروتکل یا GUID</string>
+    <string name="omni_config_refresh">به‌روزرسانی پروفایل‌ها</string>
+    <string name="omni_config_ping">پینگ واقعی</string>
+    <string name="omni_config_optimize">بهینه‌سازی در Scanner</string>
+    <string name="omni_config_share">اشتراک‌گذاری</string>
+    <string name="omni_config_delete">حذف</string>
+    <string name="omni_config_delete_title">کانفیگ انتخاب‌شده حذف شود؟</string>
+    <string name="omni_config_delete_confirm">پروفایل محلی از همان ذخیره‌ساز فعلی حذف می‌شود؛ پنل شما تغییری نمی‌کند.</string>
+    <string name="omni_config_empty">هنوز کانفیگی ذخیره نشده است.</string>
+    <string name="omni_config_no_matches">هیچ کانفیگی با این فیلتر پیدا نشد.</string>
+    <string name="omni_config_unnamed">کانفیگ بدون نام</string>
+    <string name="omni_config_no_endpoint">تعیین نشده</string>
+    <string name="omni_config_endpoint">Endpoint: %1$s:%2$s</string>
+    <string name="omni_config_untested">پینگ: تست نشده</string>
+    <string name="omni_config_no_response">بدون پاسخ</string>
+    <string name="omni_config_ping_metrics">پینگ واقعی: %1$d/%2$d موفق · median %3$d ms · jitter %4$s ms</string>
+    <string name="omni_config_filter_all">همه</string>
+    <string name="omni_config_filter_vless">VLESS</string>
+    <string name="omni_config_filter_vmess">VMess</string>
+    <string name="omni_config_filter_trojan">Trojan</string>
+    <string name="omni_config_filter_other">سایر</string>
+    <string name="omni_config_load_failed">بارگذاری پروفایل‌ها ناموفق بود؛ به‌روزرسانی فهرست اعلام نمی‌شود.</string>
+    <string name="omni_config_delete_failed">حذف ناموفق بود؛ حذف پروفایل اعلام نمی‌شود.</string>
+    <string name="omni_config_deleted">کانفیگ به‌صورت محلی حذف شد.</string>
+    <string name="omni_config_share_failed">اشتراک‌گذاری ناموفق بود؛ کانفیگی کپی نشد.</string>
+    <string name="omni_config_shared">کانفیگ با formatter فعلی کپی شد.</string>
+    <string name="omni_config_ping_failed">پینگ واقعی ناموفق بود یا نتیجه‌ای نداشت؛ هیچ latencyای اعلام نمی‌شود.</string>
 </resources>

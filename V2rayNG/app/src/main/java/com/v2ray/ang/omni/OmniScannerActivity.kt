@@ -22,6 +22,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,6 +51,14 @@ class OmniScannerActivity : BaseComponentActivity() {
     @Composable
     override fun ScreenContent() {
         val state by model.state.collectAsStateWithLifecycle()
+        val requestedTemplate = remember { intent.getStringExtra(EXTRA_TEMPLATE_GUID) }
+        var templatePreselected by remember { mutableStateOf(false) }
+        LaunchedEffect(requestedTemplate, state.templates) {
+            if (!templatePreselected && requestedTemplate != null && state.templates.any { it.guid == requestedTemplate }) {
+                model.selectTemplate(requestedTemplate)
+                templatePreselected = true
+            }
+        }
         OmniScannerScreen(
             state = state,
             onBack = { finish() },
@@ -72,6 +81,10 @@ class OmniScannerActivity : BaseComponentActivity() {
             onPublish = model::publishBuilt,
             onSync = model::syncSelectedPanel,
         )
+    }
+
+    companion object {
+        const val EXTRA_TEMPLATE_GUID = "omni.scanner.template_guid"
     }
 }
 
