@@ -355,7 +355,7 @@ private fun OmniScannerResultRow(result: OmniEdgeProbeResult, selected: Boolean,
         Checkbox(checked = selected, onCheckedChange = null)
         Column(modifier = Modifier.weight(1f)) {
             Text(result.target.endpointId, style = MaterialTheme.typography.titleSmall)
-            Text(stringResource(R.string.omni_scanner_metrics, result.stats.succeeded, result.stats.attempted, result.stats.medianMs?.toString() ?: stringResource(R.string.omni_scanner_no_response), result.stats.jitterMs?.toString() ?: stringResource(R.string.omni_scanner_no_response)))
+            Text(stringResource(R.string.omni_scanner_metrics, result.stats.succeeded, result.stats.attempted, result.stats.medianMs?.toString() ?: stringResource(R.string.omni_scanner_no_response), result.stats.jitterMs?.toString() ?: stringResource(R.string.omni_scanner_no_response), result.stats.lossPercent))
             result.evidence?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
             result.error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
         }

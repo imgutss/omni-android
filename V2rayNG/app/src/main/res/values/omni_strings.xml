@@ -98,7 +98,7 @@
     <string name="omni_scanner_saved">Saved %1$d configurations locally.</string>
     <string name="omni_scanner_save_failed">Saving failed; no successful save is claimed.</string>
     <string name="omni_scanner_result_label">Select scan result %1$s</string>
-    <string name="omni_scanner_metrics">Success %1$d/%2$d · median %3$s ms · jitter %4$s ms</string>
+    <string name="omni_scanner_metrics">Success %1$d/%2$d · median %3$s ms · jitter %4$s ms · loss %5$.1f%%</string>
     <string name="omni_scanner_no_response">no response</string>
     <string name="omni_scanner_speed_title">Speed &amp; Ping Lab</string>
     <string name="omni_scanner_speed_note">Tunnel TTFB and byte/time throughput are separate from direct edge latency. Tests use the saved built configuration through the native core.</string>

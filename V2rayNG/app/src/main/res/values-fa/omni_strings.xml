@@ -98,7 +98,7 @@
     <string name="omni_scanner_saved">%1$d کانفیگ به‌صورت محلی ذخیره شد.</string>
     <string name="omni_scanner_save_failed">ذخیره ناموفق بود؛ ذخیرهٔ موفقی اعلام نمی‌شود.</string>
     <string name="omni_scanner_result_label">انتخاب نتیجهٔ اسکن %1$s</string>
-    <string name="omni_scanner_metrics">موفق %1$d/%2$d · median %3$s ms · jitter %4$s ms</string>
+    <string name="omni_scanner_metrics">موفق %1$d/%2$d · median %3$s ms · jitter %4$s ms · loss %5$.1f%%</string>
     <string name="omni_scanner_no_response">بدون پاسخ</string>
     <string name="omni_scanner_speed_title">آزمایشگاه سرعت و پینگ</string>
     <string name="omni_scanner_speed_note">TTFB تونل و سرعت بایت/زمان از latency مستقیم edge جدا هستند. تست با کانفیگ ذخیره‌شده و core بومی انجام می‌شود.</string>
