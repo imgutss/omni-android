@@ -13,7 +13,7 @@ android {
         applicationId = "net.omnigate.app"
         minSdk = 29
         targetSdk = 37
-        versionCode = 2
+        versionCode = 3
         versionName = (project.findProperty("pattngVersion") as? String)?.takeIf { it.isNotBlank() } ?: "0.3.0"
 
         val abiFilterList = (properties["ABI_FILTERS"] as? String)?.split(';')
