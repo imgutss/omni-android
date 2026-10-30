@@ -3,6 +3,7 @@ package com.v2ray.ang.omni
 import com.v2ray.ang.dto.entities.ProfileItem
 import com.v2ray.ang.enums.EConfigType
 import com.v2ray.ang.omni.lab.OmniBuiltConfiguration
+import com.v2ray.ang.omni.lab.OmniProbeMode
 import com.v2ray.ang.omni.lab.OmniScanTarget
 import com.v2ray.ang.omni.lab.OmniTargetKind
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -37,6 +38,31 @@ class OmniScannerBatchTest {
             ),
         )
         assertEquals(listOf(positive, zero), ranked)
+    }
+
+    @Test
+    fun templateTransportDrivesProbeInsteadOfUnrelatedPortDefaults() {
+        val tlsWs = omniScannerProbeDefaults(ProfileItem(
+            configType = EConfigType.VLESS,
+            network = "ws",
+            security = "tls",
+            sni = "edge.example",
+            host = "origin.example",
+            path = "/ray",
+        ))
+        assertEquals(OmniProbeMode.WEBSOCKET, tlsWs.mode)
+        assertEquals(true, tlsWs.useTls)
+        assertEquals("edge.example", tlsWs.sni)
+        assertEquals("origin.example", tlsWs.hostHeader)
+        assertEquals("/ray", tlsWs.path)
+
+        val plainWs = omniScannerProbeDefaults(ProfileItem(configType = EConfigType.TROJAN, network = "ws", security = "none"))
+        assertEquals(OmniProbeMode.WEBSOCKET, plainWs.mode)
+        assertEquals(false, plainWs.useTls)
+
+        val plain = omniScannerProbeDefaults(ProfileItem(configType = EConfigType.TROJAN, network = "ws"))
+        assertEquals(OmniProbeMode.WEBSOCKET, plain.mode)
+        assertEquals(false, plain.useTls)
     }
 
     private fun built(host: String, fingerprint: String) = OmniBuiltConfiguration(

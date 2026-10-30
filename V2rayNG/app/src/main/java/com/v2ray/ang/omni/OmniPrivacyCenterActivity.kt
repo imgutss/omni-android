@@ -130,7 +130,7 @@ fun OmniPrivacyCenterScreen(
                         }
                         Button(onClick = onRevokeAll, enabled = activeCount > 0 && !state.busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.omni_privacy_revoke_all)) }
                         OutlinedButton(onClick = onForgetAll, enabled = state.panels.isNotEmpty() && !state.busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.omni_privacy_forget_all)) }
-                        OutlinedButton(onClick = onRefresh, enabled = !state.busy && !state.loading, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.omni_config_refresh)) }
+                        OutlinedButton(onClick = onRefresh, enabled = !state.busy && !state.loading, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.omni_refresh)) }
                         state.message?.let { Text(privacyMessageText(it), color = if (it == OmniPrivacyMessage.REVOKED || it == OmniPrivacyMessage.LOCAL_FORGOTTEN) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error) }
                         if (state.busy) CircularProgressIndicator()
                     }

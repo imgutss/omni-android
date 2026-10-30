@@ -19,6 +19,9 @@ data class OmniLatencyStats(
     val lossPercent: Double
         get() = if (attempted == 0) 100.0 else (attempted - succeeded).coerceAtLeast(0) * 100.0 / attempted
 
+    val successRate: Double
+        get() = if (attempted <= 0) 0.0 else succeeded.coerceIn(0, attempted).toDouble() / attempted
+
     companion object {
         fun from(samples: List<Long?>, attempts: Int = samples.size): OmniLatencyStats {
             val successful = samples.filterNotNull().filter { it >= 0L }

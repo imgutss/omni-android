@@ -32,11 +32,52 @@ class OmniTransferLabTest {
             assertEquals(66_560L, result.dataUsedBytes)
             assertTrue(result.downloadDurationMs > 0L)
             assertTrue(result.uploadDurationMs > 0L)
+            assertTrue(result.downloadTtfbMs != null)
+            assertTrue(result.durationMs >= result.downloadDurationMs + result.uploadDurationMs)
+            assertEquals(200, result.downloadHttpStatus)
             assertTrue(result.downloadMBps >= 0.0)
             assertTrue(result.uploadMbps >= 0.0)
             assertFalse(runtime.started)
             assertEquals(1_024, fixture.receivedUpload)
         }
+    }
+
+    @Test
+    fun shortDownloadIsFailureRatherThanComparableFullSample() = runBlocking {
+        HttpFixture().use { fixture ->
+            val runtime = FakeRuntime()
+            val result = OmniTransferLab(runtime, clientFactory = { OkHttpClient() }).measure(
+                originalConfig = "{\"outbounds\":[{\"protocol\":\"vless\"}]}",
+                downloadUrl = fixture.url,
+                downloadLimitBytes = 131_072,
+            )
+            assertFalse(result.success)
+            assertEquals(65_536L, result.downloadBytes)
+            assertEquals(200, result.downloadHttpStatus)
+            assertFalse(runtime.started)
+        }
+    }
+
+    @Test
+    fun fallbackAccountingRetainsTheFailedAttemptsDataAndWallTime() {
+        val cloudflare = OmniTransferResult(
+            success = false,
+            downloadBytes = 2_048,
+            downloadDurationMs = 20,
+            downloadTtfbMs = 5,
+            attemptDurationMs = 80,
+        )
+        val fallback = OmniTransferResult(
+            success = true,
+            downloadBytes = 4_096,
+            downloadDurationMs = 40,
+            attemptDurationMs = 100,
+        ).copy(
+            priorAttemptDataBytes = cloudflare.dataUsedBytes,
+            priorAttemptDurationMs = cloudflare.durationMs,
+        )
+        assertEquals(6_144L, fallback.dataUsedBytes)
+        assertEquals(180L, fallback.durationMs)
     }
 
     @Test

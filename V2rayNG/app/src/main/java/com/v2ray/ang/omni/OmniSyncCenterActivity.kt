@@ -106,7 +106,7 @@ fun OmniSyncCenterScreen(
                             Text(stringResource(R.string.omni_sync_toggle_all))
                         }
                         TextButton(onClick = onRefresh, enabled = !state.running && !state.loading) {
-                            Text(stringResource(R.string.omni_config_refresh))
+                            Text(stringResource(R.string.omni_refresh))
                         }
                         TextButton(onClick = onOpenHub, enabled = !state.running) {
                             Text(stringResource(R.string.omni_sync_manage_panels))

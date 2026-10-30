@@ -27,6 +27,8 @@ object OmniEndpointConfigFactory {
             server = target.host,
             serverPort = target.port.toString(),
             remarks = options.remarks?.takeIf { it.isNotBlank() } ?: "${template.remarks.ifBlank { "Omni" }} · ${target.endpointId}",
+            // The server list prefers this cached line. Never leave the template's old endpoint beside the new one.
+            description = null,
             addedTime = System.currentTimeMillis(),
         )
         if (!options.keepTransportHost && !options.hostHeader.isNullOrBlank()) {

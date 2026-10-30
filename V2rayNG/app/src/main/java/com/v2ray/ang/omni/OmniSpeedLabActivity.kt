@@ -9,13 +9,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -44,12 +47,13 @@ class OmniSpeedLabActivity : BaseComponentActivity() {
         OmniSpeedLabScreen(
             state = state,
             onBack = { finish() },
-            onProfile = model::selectProfile,
+            onSubscription = model::selectSubscription,
             onDownloadUrl = model::updateDownloadUrl,
             onUploadUrl = model::updateUploadUrl,
             onDownloadSize = model::updateDownloadSize,
             onUploadSize = model::updateUploadSize,
             onSpeed = model::runSpeedTest,
+            onCancelSpeed = model::cancelSpeedTest,
             onPing = model::runRealPing,
             onRefresh = model::refresh,
         )
@@ -60,16 +64,17 @@ class OmniSpeedLabActivity : BaseComponentActivity() {
 fun OmniSpeedLabScreen(
     state: OmniSpeedLabUiState,
     onBack: () -> Unit,
-    onProfile: (String) -> Unit,
+    onSubscription: (String) -> Unit,
     onDownloadUrl: (String) -> Unit,
     onUploadUrl: (String) -> Unit,
     onDownloadSize: (String) -> Unit,
     onUploadSize: (String) -> Unit,
     onSpeed: () -> Unit,
+    onCancelSpeed: () -> Unit,
     onPing: () -> Unit,
     onRefresh: () -> Unit,
 ) {
-    val selected = state.entries.firstOrNull { it.guid == state.selectedGuid }
+    val busy = state.speedRunning || state.pingRunning
     Scaffold(topBar = { AppTopBar(title = stringResource(R.string.omni_speed_title), onBackClick = onBack) }) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().consumeWindowInsets(padding).imePadding(),
@@ -80,12 +85,23 @@ fun OmniSpeedLabScreen(
                 Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                     Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(stringResource(R.string.omni_speed_subtitle), style = MaterialTheme.typography.bodyMedium)
-                        OmniSpeedProfilePicker(state, onProfile)
-                        selected?.let {
-                            Text(stringResource(R.string.omni_speed_selected_profile, it.profile.remarks.ifBlank { it.guid }, it.profile.configType.name), style = MaterialTheme.typography.bodySmall)
-                        }
-                        OutlinedTextField(value = state.downloadUrlInput, onValueChange = onDownloadUrl, enabled = !state.speedRunning, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text(stringResource(R.string.omni_scanner_download_url)) })
-                        OutlinedTextField(value = state.uploadUrlInput, onValueChange = onUploadUrl, enabled = !state.speedRunning, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text(stringResource(R.string.omni_scanner_upload_url)) })
+                        OmniSpeedSubscriptionPicker(state, onSubscription)
+                        OutlinedTextField(
+                            value = state.downloadUrlInput,
+                            onValueChange = onDownloadUrl,
+                            enabled = !state.speedRunning,
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            label = { Text(stringResource(R.string.omni_scanner_download_url)) },
+                        )
+                        OutlinedTextField(
+                            value = state.uploadUrlInput,
+                            onValueChange = onUploadUrl,
+                            enabled = !state.speedRunning,
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            label = { Text(stringResource(R.string.omni_scanner_upload_url)) },
+                        )
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedTextField(
                                 value = state.downloadSizeInput,
@@ -107,48 +123,79 @@ fun OmniSpeedLabScreen(
                             )
                         }
                         Text(stringResource(R.string.omni_speed_size_note), style = MaterialTheme.typography.bodySmall)
+                        state.plannedDataBytes?.let { bytes ->
+                            Text(
+                                stringResource(R.string.omni_speed_planned_data, state.totalCount, bytes / 1_048_576.0),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(onClick = onSpeed, enabled = selected != null && !state.speedRunning && !state.pingRunning, modifier = Modifier.weight(1f)) {
-                                if (state.speedRunning) CircularProgressIndicator() else Text(stringResource(R.string.omni_speed_run))
+                            if (state.speedRunning) {
+                                OutlinedButton(onClick = onCancelSpeed, modifier = Modifier.weight(1f)) {
+                                    Text(stringResource(R.string.omni_speed_cancel))
+                                }
+                            } else {
+                                Button(
+                                    onClick = onSpeed,
+                                    enabled = state.results.isNotEmpty() && !state.pingRunning,
+                                    modifier = Modifier.weight(1f),
+                                ) { Text(stringResource(R.string.omni_speed_run_all)) }
                             }
-                            OutlinedButton(onClick = onPing, enabled = selected != null && !state.speedRunning && !state.pingRunning, modifier = Modifier.weight(1f)) {
-                                if (state.pingRunning) CircularProgressIndicator() else Text(stringResource(R.string.omni_speed_ping))
+                            OutlinedButton(
+                                onClick = onPing,
+                                enabled = state.results.isNotEmpty() && !busy,
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                if (state.pingRunning) {
+                                    CircularProgressIndicator(modifier = Modifier.padding(end = 8.dp).size(20.dp))
+                                    Text(stringResource(R.string.omni_speed_ping_running))
+                                } else {
+                                    Text(stringResource(R.string.omni_speed_ping_all))
+                                }
                             }
                         }
-                        OutlinedButton(onClick = onRefresh, enabled = !state.speedRunning && !state.pingRunning && !state.loading, modifier = Modifier.fillMaxWidth()) {
-                            Text(stringResource(R.string.omni_config_refresh))
+                        OutlinedButton(
+                            onClick = onRefresh,
+                            enabled = !busy && !state.loading,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) { Text(stringResource(R.string.omni_refresh)) }
+                        if (state.speedRunning) {
+                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                            Text(stringResource(R.string.omni_speed_progress, state.completedCount, state.totalCount))
                         }
-                        state.message?.let { Text(speedMessageText(it), color = MaterialTheme.colorScheme.error) }
+                        state.message?.let {
+                            Text(
+                                speedMessageText(it),
+                                color = if (it in setOf(OmniSpeedLabMessage.BATCH_FINISHED, OmniSpeedLabMessage.BATCH_CANCELLED)) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.error
+                                },
+                            )
+                        }
                     }
                 }
             }
             item {
-                Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                        Text(stringResource(R.string.omni_speed_results), style = MaterialTheme.typography.titleMedium)
-                        Text(stringResource(R.string.omni_speed_separate_metrics), style = MaterialTheme.typography.bodySmall)
-                        val noResponse = stringResource(R.string.omni_scanner_no_response)
-                        state.connectivity?.let { connection ->
-                            Text(stringResource(R.string.omni_scanner_tunnel_metrics, connection.ttfbMs?.toString() ?: noResponse, connection.httpStatus?.toString() ?: noResponse))
-                            connection.error?.let { Text(stringResource(R.string.omni_speed_error, it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
-                        }
-                        state.transfer?.let { transfer ->
-                            Text(stringResource(R.string.omni_scanner_download_metrics, transfer.downloadBytes, transfer.downloadDurationMs, transfer.downloadMBps, transfer.downloadMbps))
-                            if (transfer.requestedUploadBytes > 0) {
-                                Text(stringResource(R.string.omni_scanner_upload_metrics, transfer.uploadBytes, transfer.uploadDurationMs, transfer.uploadMBps, transfer.uploadMbps))
-                            }
-                            Text(stringResource(R.string.omni_scanner_data_use, transfer.downloadLimitBytes, transfer.requestedUploadBytes, transfer.dataUsedBytes))
-                            transfer.error?.let { Text(stringResource(R.string.omni_speed_error, it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
-                        }
-                        if (state.pingTested) {
-                            Text(stringResource(R.string.omni_scanner_ping_metrics, state.pingSuccesses, state.pingSamples, state.pingDelayMs?.toString() ?: noResponse, state.pingJitterMs?.toString() ?: noResponse))
-                        } else if (!state.pingRunning) {
-                            Text(stringResource(R.string.omni_speed_ping_untested), style = MaterialTheme.typography.bodySmall)
-                        }
-                        if (state.connectivity == null && state.transfer == null && !state.speedRunning) {
-                            Text(stringResource(R.string.omni_speed_no_transfer), style = MaterialTheme.typography.bodySmall)
-                        }
+                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    Text(stringResource(R.string.omni_speed_ranked_results), style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.omni_speed_separate_metrics), style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            if (state.results.isEmpty() && !state.loading) {
+                item {
+                    Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                        Text(stringResource(R.string.omni_speed_empty), modifier = Modifier.padding(16.dp))
                     }
+                }
+            } else {
+                itemsIndexed(state.results, key = { _, result -> result.profile.guid }) { index, result ->
+                    OmniSpeedResultRow(
+                        index = index + 1,
+                        result = result,
+                        ping = state.pingResults[result.profile.guid],
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                    )
                 }
             }
         }
@@ -156,18 +203,120 @@ fun OmniSpeedLabScreen(
 }
 
 @Composable
-private fun OmniSpeedProfilePicker(state: OmniSpeedLabUiState, onProfile: (String) -> Unit) {
+private fun OmniSpeedSubscriptionPicker(state: OmniSpeedLabUiState, onSubscription: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
-    val selected = state.entries.firstOrNull { it.guid == state.selectedGuid }
-    OutlinedButton(onClick = { expanded = true }, enabled = state.entries.isNotEmpty() && !state.speedRunning && !state.pingRunning, modifier = Modifier.fillMaxWidth()) {
-        Text(selected?.profile?.remarks?.ifBlank { selected.guid } ?: stringResource(R.string.omni_speed_choose_profile))
+    val selected = state.subscriptions.firstOrNull { it.id == state.selectedSubscriptionId }
+    OutlinedButton(
+        onClick = { expanded = true },
+        enabled = state.subscriptions.isNotEmpty() && !state.speedRunning && !state.pingRunning,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(
+            selected?.let { stringResource(R.string.omni_speed_subscription_count, omniSpeedSubscriptionName(it), it.profiles.size) }
+                ?: stringResource(R.string.omni_speed_choose_subscription),
+        )
     }
     DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-        state.entries.forEach { entry ->
+        state.subscriptions.forEach { subscription ->
             DropdownMenuItem(
-                text = { Text("${entry.profile.remarks.ifBlank { entry.guid }} · ${entry.profile.configType.name}") },
-                onClick = { onProfile(entry.guid); expanded = false },
+                text = { Text(stringResource(R.string.omni_speed_subscription_count, omniSpeedSubscriptionName(subscription), subscription.profiles.size)) },
+                onClick = { onSubscription(subscription.id); expanded = false },
             )
+        }
+    }
+}
+
+@Composable
+private fun omniSpeedSubscriptionName(subscription: OmniSpeedSubscription): String =
+    subscription.name.ifBlank { stringResource(R.string.omni_speed_default_subscription) }
+
+@Composable
+private fun OmniSpeedResultRow(
+    index: Int,
+    result: OmniSpeedProfileResult,
+    ping: OmniSpeedPing?,
+    modifier: Modifier = Modifier,
+) {
+    val profile = result.profile
+    val noResponse = stringResource(R.string.omni_scanner_no_response)
+    Card(modifier = modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(
+                stringResource(R.string.omni_speed_result_rank, index, profile.profile.remarks.ifBlank { profile.guid }),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(profile.profile.configType.name, style = MaterialTheme.typography.bodySmall)
+            Text(
+                stringResource(R.string.omni_speed_endpoint, profile.profile.server.orEmpty(), profile.profile.serverPort.orEmpty()),
+                style = MaterialTheme.typography.bodySmall,
+            )
+            when (result.status) {
+                OmniSpeedStatus.UNTESTED -> Text(stringResource(R.string.omni_speed_no_transfer), style = MaterialTheme.typography.bodySmall)
+                OmniSpeedStatus.RUNNING -> Text(stringResource(R.string.omni_speed_status_running), color = MaterialTheme.colorScheme.primary)
+                OmniSpeedStatus.FAILED -> Text(stringResource(R.string.omni_speed_status_failed), color = MaterialTheme.colorScheme.error)
+                OmniSpeedStatus.SUCCESS -> Unit
+            }
+            result.transfer?.let { transfer ->
+                if (transfer.downloadTtfbMs != null || transfer.downloadHttpStatus != null) {
+                    Text(
+                        stringResource(
+                            R.string.omni_scanner_tunnel_metrics,
+                            transfer.downloadTtfbMs?.toString() ?: noResponse,
+                            transfer.downloadHttpStatus?.toString() ?: noResponse,
+                        ),
+                    )
+                }
+                if (transfer.success) {
+                    Text(
+                        stringResource(
+                            R.string.omni_scanner_download_metrics,
+                            transfer.downloadBytes,
+                            transfer.downloadDurationMs,
+                            transfer.downloadMBps,
+                            transfer.downloadMbps,
+                        ),
+                    )
+                }
+                if (transfer.success && transfer.requestedUploadBytes > 0) {
+                    Text(
+                        stringResource(
+                            R.string.omni_scanner_upload_metrics,
+                            transfer.uploadBytes,
+                            transfer.uploadDurationMs,
+                            transfer.uploadMBps,
+                            transfer.uploadMbps,
+                        ),
+                    )
+                }
+                Text(
+                    stringResource(
+                        R.string.omni_scanner_data_use,
+                        transfer.downloadLimitBytes,
+                        transfer.requestedUploadBytes,
+                        transfer.dataUsedBytes,
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Text(stringResource(R.string.omni_speed_elapsed, transfer.durationMs), style = MaterialTheme.typography.bodySmall)
+                transfer.error?.let {
+                    Text(stringResource(R.string.omni_speed_error, it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                }
+            }
+            result.downloadHost?.let { Text(stringResource(R.string.omni_speed_download_endpoint, it), style = MaterialTheme.typography.bodySmall) }
+            if (result.usedFallback) {
+                Text(stringResource(R.string.omni_speed_fallback), style = MaterialTheme.typography.bodySmall)
+            }
+            ping?.let {
+                Text(
+                    stringResource(
+                        R.string.omni_scanner_ping_metrics,
+                        it.successfulSamples,
+                        it.sampleCount,
+                        it.delayMs?.toString() ?: noResponse,
+                        it.jitterMs?.toString() ?: noResponse,
+                    ),
+                )
+            }
         }
     }
 }
@@ -180,5 +329,8 @@ private fun speedMessageText(message: OmniSpeedLabMessage): String = stringResou
         OmniSpeedLabMessage.INVALID_INPUT -> R.string.omni_speed_invalid_input
         OmniSpeedLabMessage.SPEED_FAILED -> R.string.omni_speed_failed
         OmniSpeedLabMessage.PING_FAILED -> R.string.omni_speed_ping_failed
+        OmniSpeedLabMessage.BATCH_FINISHED -> R.string.omni_speed_batch_finished
+        OmniSpeedLabMessage.BATCH_PARTIAL -> R.string.omni_speed_batch_partial
+        OmniSpeedLabMessage.BATCH_CANCELLED -> R.string.omni_speed_batch_cancelled
     },
 )

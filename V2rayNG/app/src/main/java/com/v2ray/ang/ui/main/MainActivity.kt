@@ -49,15 +49,8 @@ import com.v2ray.ang.ui.server.ServerWireguardActivity
 import com.v2ray.ang.ui.settings.SettingsActivity
 import com.v2ray.ang.ui.subscription.SubSettingActivity
 import com.v2ray.ang.omni.OmniDoctorActivity
-import com.v2ray.ang.omni.OmniConfigManagerActivity
 import com.v2ray.ang.omni.OmniHubActivity
 import com.v2ray.ang.omni.OmniScannerActivity
-import com.v2ray.ang.omni.OmniSyncCenterActivity
-import com.v2ray.ang.omni.OmniSpeedLabActivity
-import com.v2ray.ang.omni.OmniRoutingStudioActivity
-import com.v2ray.ang.omni.OmniDnsLabActivity
-import com.v2ray.ang.omni.OmniConnectionCenterActivity
-import com.v2ray.ang.omni.OmniPrivacyCenterActivity
 import com.v2ray.ang.ui.userasset.UserAssetActivity
 import com.v2ray.ang.util.LogUtil
 import com.v2ray.ang.util.Utils
@@ -177,13 +170,6 @@ class MainActivity : HelperBaseComponentActivity() {
             MainDestination.OmniPanel -> Intent(this, OmniHubActivity::class.java)
             MainDestination.OmniDoctor -> Intent(this, OmniDoctorActivity::class.java)
             MainDestination.OmniScanner -> Intent(this, OmniScannerActivity::class.java)
-            MainDestination.OmniConfigManager -> Intent(this, OmniConfigManagerActivity::class.java)
-            MainDestination.OmniSyncCenter -> Intent(this, OmniSyncCenterActivity::class.java)
-            MainDestination.OmniSpeedLab -> Intent(this, OmniSpeedLabActivity::class.java)
-            MainDestination.OmniRoutingStudio -> Intent(this, OmniRoutingStudioActivity::class.java)
-            MainDestination.OmniDnsLab -> Intent(this, OmniDnsLabActivity::class.java)
-            MainDestination.OmniConnectionCenter -> Intent(this, OmniConnectionCenterActivity::class.java)
-            MainDestination.OmniPrivacyCenter -> Intent(this, OmniPrivacyCenterActivity::class.java)
         }
         settingsActivityLauncher.launch(intent)
     }

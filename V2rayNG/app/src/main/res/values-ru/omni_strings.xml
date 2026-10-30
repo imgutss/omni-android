@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="omni_scanner_title">Omni Scanner</string>
-    <string name="omni_scanner_subtitle">Scan real endpoints, then build from your own VLESS, VMess or Trojan template.</string>
+    <string name="omni_scanner_subtitle">Probe with the selected template’s real transport, then build from your own VLESS, VMess or Trojan configuration.</string>
     <string name="omni_scanner_targets">IP, CIDR, range or host targets</string>
     <string name="omni_scanner_targets_hint">One target per line. Examples: 192.0.2.0/28, 192.0.2.1-192.0.2.20, host:443,8443</string>
     <string name="omni_scanner_ports">Ports (comma or space separated)</string>
@@ -9,7 +9,7 @@
     <string name="omni_scanner_limit">Maximum probes</string>
     <string name="omni_scanner_start">Start real scan</string>
     <string name="omni_scanner_stop">Stop scan</string>
-    <string name="omni_scanner_select_successful">Select successful</string>
+    <string name="omni_scanner_select_successful">Select complete probes</string>
     <string name="omni_scanner_plan">Planned targets: %1$d · probes: %2$d · invalid inputs: %3$d</string>
     <string name="omni_scanner_build">Build selected</string>
     <string name="omni_scanner_save">Save locally</string>
@@ -20,7 +20,7 @@
     <string name="omni_scanner_no_template">Choose a VLESS, VMess or Trojan template first.</string>
     <string name="omni_scanner_no_selection">Select at least one successful endpoint.</string>
     <string name="omni_scanner_build_empty">There is no built configuration to save.</string>
-    <string name="omni_scanner_saved">Saved %1$d configurations locally.</string>
+    <string name="omni_scanner_saved">Saved %1$d configurations locally; real-core validation started.</string>
     <string name="omni_scanner_save_failed">Saving failed; no successful save is claimed.</string>
     <string name="omni_scanner_result_label">Select scan result %1$s</string>
     <string name="omni_scanner_metrics">Success %1$d/%2$d · median %3$s ms · jitter %4$s ms · loss %5$.1f%%</string>
@@ -74,35 +74,7 @@
     <string name="omni_hub_device_reported">Device report sent with app and OS metadata only.</string>
     <string name="omni_hub_device_report_note">Device report contains app version, device model and Android version; no configurations or tokens.</string>
 
-    <string name="omni_config_title">Omni Config Manager</string>
-    <string name="omni_config_subtitle">Manage the profiles already stored by the app. Optimize opens the real scanner with the selected profile as its template and saves new profiles without overwriting the original.</string>
-    <string name="omni_config_search">Search name, endpoint, protocol or GUID</string>
-    <string name="omni_config_refresh">Refresh profiles</string>
-    <string name="omni_config_ping">Real ping</string>
-    <string name="omni_config_optimize">Optimize in Scanner</string>
-    <string name="omni_config_share">Share</string>
-    <string name="omni_config_delete">Delete</string>
-    <string name="omni_config_delete_title">Delete selected configuration?</string>
-    <string name="omni_config_delete_confirm">This removes the local profile through the existing profile store. It does not change your panel.</string>
-    <string name="omni_config_empty">No configurations are stored yet.</string>
-    <string name="omni_config_no_matches">No configurations match this filter.</string>
-    <string name="omni_config_unnamed">Unnamed configuration</string>
-    <string name="omni_config_no_endpoint">not set</string>
-    <string name="omni_config_endpoint">Endpoint: %1$s:%2$s</string>
-    <string name="omni_config_untested">Ping: untested</string>
-    <string name="omni_config_no_response">no response</string>
-    <string name="omni_config_ping_metrics">Real ping: %1$d/%2$d successful · median %3$d ms · jitter %4$s ms</string>
-    <string name="omni_config_filter_all">All</string>
-    <string name="omni_config_filter_vless">VLESS</string>
-    <string name="omni_config_filter_vmess">VMess</string>
-    <string name="omni_config_filter_trojan">Trojan</string>
-    <string name="omni_config_filter_other">Other</string>
-    <string name="omni_config_load_failed">Profiles could not be loaded; no list update is claimed.</string>
-    <string name="omni_config_delete_failed">Delete failed; the profile was not reported as removed.</string>
-    <string name="omni_config_deleted">Configuration deleted locally.</string>
-    <string name="omni_config_share_failed">Share failed; no configuration was copied.</string>
-    <string name="omni_config_shared">Configuration copied using the existing formatter.</string>
-    <string name="omni_config_ping_failed">Real ping failed or returned no result; no latency is claimed.</string>
+    <string name="omni_refresh">Refresh profiles</string>
 
     <string name="omni_sync_title">Omni Sync Center</string>
     <string name="omni_sync_subtitle">Run real subscription sync and panel health checks. Each panel reports its own result; a failed panel is never counted as synchronized.</string>
@@ -124,11 +96,11 @@
     <string name="omni_sync_check_result_success">Health check succeeded: %1$s</string>
 
     <string name="omni_speed_title">Omni Speed &amp; Ping Lab</string>
-    <string name="omni_speed_subtitle">Test any saved profile through the real native core. Direct/core ping, tunnel TTFB and byte-counted throughput are separate measurements.</string>
+    <string name="omni_speed_subtitle">Test every configuration in the selected subscription through the real native core. Core ping, tunnel TTFB and byte-counted download/upload throughput remain separate.</string>
     <string name="omni_speed_selected_profile">Selected: %1$s · %2$s</string>
     <string name="omni_speed_download_size">Download bytes</string>
     <string name="omni_speed_upload_size">Upload bytes</string>
-    <string name="omni_speed_size_note">Each size is bounded to 1 KiB–16 MiB. Upload is sent only when an upload URL is supplied; measured data is actual bytes read or written.</string>
+    <string name="omni_speed_size_note">Each size is bounded to 1 KiB–16 MiB. Upload is sent only when an upload URL is supplied; measured data includes any fallback attempt.</string>
     <string name="omni_speed_run">Run tunnel test</string>
     <string name="omni_speed_ping">Real ping</string>
     <string name="omni_speed_results">Measurement evidence</string>
@@ -137,8 +109,8 @@
     <string name="omni_speed_ping_untested">Core ping: untested</string>
     <string name="omni_speed_no_transfer">Tunnel transfer: untested</string>
     <string name="omni_speed_choose_profile">Choose a saved profile</string>
-    <string name="omni_speed_load_failed">Saved profiles could not be loaded.</string>
-    <string name="omni_speed_no_profile">Choose a saved profile first.</string>
+    <string name="omni_speed_load_failed">Subscriptions and saved profiles could not be loaded.</string>
+    <string name="omni_speed_no_profile">Choose a subscription with saved configurations first.</string>
     <string name="omni_speed_invalid_input">Check HTTP(S) URLs and sizes from 1024 to 16777216 bytes.</string>
     <string name="omni_speed_failed">The real tunnel test failed or this profile cannot create a native exit; no throughput is claimed.</string>
     <string name="omni_speed_ping_failed">Real ping returned no result; no latency is claimed.</string>
@@ -213,33 +185,6 @@
     <string name="omni_dns_complete">All selected resolvers returned a DNS response.</string>
     <string name="omni_dns_partial">One or more resolver queries failed; successful rows remain independent.</string>
 
-    <string name="omni_connection_title">Omni Connection Center</string>
-    <string name="omni_connection_subtitle">Control the existing native daemon. Requested states remain pending until its real broadcasts confirm the result.</string>
-    <string name="omni_connection_mode">Mode: %1$s</string>
-    <string name="omni_connection_vpn">VPN service</string>
-    <string name="omni_connection_proxy">Proxy only</string>
-    <string name="omni_connection_selected">Selected profile: %1$s · %2$s</string>
-    <string name="omni_connection_no_profile">No valid selected profile.</string>
-    <string name="omni_connection_guid">Selected GUID: %1$s</string>
-    <string name="omni_connection_start">Start</string>
-    <string name="omni_connection_stop">Stop</string>
-    <string name="omni_connection_restart">Restart</string>
-    <string name="omni_connection_actions">Related real tools</string>
-    <string name="omni_connection_unknown">Unknown: waiting for daemon state</string>
-    <string name="omni_connection_stopped">Stopped</string>
-    <string name="omni_connection_starting">Start requested; not yet confirmed</string>
-    <string name="omni_connection_connecting">Daemon is connecting</string>
-    <string name="omni_connection_running">Running (daemon confirmed)</string>
-    <string name="omni_connection_stopping">Stop requested; not yet confirmed</string>
-    <string name="omni_connection_restarting">Restart requested; not yet confirmed</string>
-    <string name="omni_connection_failure">Last operation failed</string>
-    <string name="omni_connection_select_first">Select a valid configuration in Config Manager or the main screen first.</string>
-    <string name="omni_connection_permission_denied">VPN permission was not granted; the daemon was not started.</string>
-    <string name="omni_connection_start_request_failed">No running daemon acknowledged the start/restart request.</string>
-    <string name="omni_connection_start_failed">The daemon reported start failure; no connected state is claimed.</string>
-    <string name="omni_connection_stop_request_failed">The stop request could not be sent.</string>
-    <string name="omni_connection_restart_request_failed">The restart request could not be sent.</string>
-    <string name="omni_connection_refresh_failed">Selected profile or mode could not be refreshed.</string>
     <string name="omni_doctor_actions">Real follow-up tools</string>
 
     <string name="omni_privacy_title">Omni Privacy &amp; Backup</string>
@@ -294,4 +239,27 @@
     <string name="omni_privacy_notification_settings">Open system notification settings</string>
     <string name="omni_privacy_preference_failed">The notification preference could not be saved.</string>
     <string name="omni_hub_sync_partial">Sync finished with partial failures: %1$d of %2$d panels succeeded.</string>
+    <string name="omni_hub_tools_title">Omni tools</string>
+    <string name="omni_hub_tools_subtitle">Sync, speed tests, routing, DNS and privacy are grouped here to keep the main drawer uncluttered.</string>
+    <string name="omni_speed_choose_subscription">Choose a subscription</string>
+    <string name="omni_speed_default_subscription">Default</string>
+    <string name="omni_speed_subscription_count">%1$s · %2$d configurations</string>
+    <string name="omni_speed_run_all">Test all configurations</string>
+    <string name="omni_speed_cancel">Cancel batch</string>
+    <string name="omni_speed_ping_all">Real ping all</string>
+    <string name="omni_speed_progress">%1$d of %2$d completed</string>
+    <string name="omni_speed_planned_data">Maximum planned data: %2$.1f MiB across %1$d configurations, including a possible fallback retry.</string>
+    <string name="omni_speed_ranked_results">Fastest real downloads first</string>
+    <string name="omni_speed_batch_finished">All configurations completed real tunnel tests.</string>
+    <string name="omni_speed_batch_partial">Batch finished with failures; successful results remain ranked.</string>
+    <string name="omni_speed_batch_cancelled">Batch cancelled; completed results were kept.</string>
+    <string name="omni_speed_status_running">Testing through the native core…</string>
+    <string name="omni_speed_status_failed">Failed; no speed is claimed.</string>
+    <string name="omni_speed_result_rank">#%1$d · %2$s</string>
+    <string name="omni_speed_endpoint">Endpoint: %1$s:%2$s</string>
+    <string name="omni_speed_download_endpoint">Download host: %1$s</string>
+    <string name="omni_speed_fallback">OVH fallback was used after Cloudflare failed.</string>
+    <string name="omni_speed_empty">This subscription has no saved configurations.</string>
+    <string name="omni_speed_ping_running">Pinging all…</string>
+    <string name="omni_speed_elapsed">Total measured time: %1$d ms, including any retry.</string>
 </resources>

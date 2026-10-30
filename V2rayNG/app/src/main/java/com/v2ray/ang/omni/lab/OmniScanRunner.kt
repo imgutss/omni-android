@@ -51,7 +51,8 @@ class OmniScanRunner(private val probe: OmniEdgeProbe = OmniDefaultEdgeProbe()) 
 }
 
 fun List<OmniEdgeProbeResult>.rankByEdgeQuality(): List<OmniEdgeProbeResult> = sortedWith(
-    compareByDescending<OmniEdgeProbeResult> { it.stats.succeeded > 0 }
+    compareByDescending<OmniEdgeProbeResult> { it.verified }
+        .thenByDescending { it.stats.successRate }
         .thenBy { it.stats.medianMs ?: Long.MAX_VALUE }
         .thenBy { it.stats.jitterMs ?: Long.MAX_VALUE }
         .thenByDescending { it.stats.succeeded }

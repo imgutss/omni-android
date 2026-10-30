@@ -95,7 +95,7 @@ fun OmniRoutingStudioScreen(
                             Button(onClick = onSimulate, enabled = !state.simulating && !state.loading, modifier = Modifier.weight(1f)) {
                                 if (state.simulating) CircularProgressIndicator() else Text(stringResource(R.string.omni_routing_simulate))
                             }
-                            OutlinedButton(onClick = onRefresh, enabled = !state.simulating && !state.loading, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.omni_config_refresh)) }
+                            OutlinedButton(onClick = onRefresh, enabled = !state.simulating && !state.loading, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.omni_refresh)) }
                         }
                         state.message?.let { Text(routingMessageText(it), color = MaterialTheme.colorScheme.error) }
                     }

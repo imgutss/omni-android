@@ -26,6 +26,8 @@ data class OmniProbeOptions(
     val sni: String? = null,
     val httpPath: String = "/",
     val hostHeader: String? = null,
+    /** Null keeps port/SNI inference for manual scans; a template sets its actual plain/TLS transport explicitly. */
+    val useTls: Boolean? = null,
 ) {
     init {
         require(samples in 1..20) { "Samples must be between 1 and 20" }
@@ -46,6 +48,9 @@ data class OmniEdgeProbeResult(
     val error: String? = null,
 ) {
     val success: Boolean get() = stats.succeeded > 0
+    val verified: Boolean
+        get() = stats.attempted > 0 && stats.succeeded == stats.attempted &&
+            (mode != OmniProbeMode.WEBSOCKET || httpStatus == 101)
 }
 
 fun interface OmniEdgeProbe {
@@ -106,7 +111,7 @@ class OmniDefaultEdgeProbe : OmniEdgeProbe {
         return Socket().use { raw ->
             raw.connect(InetSocketAddress(target.host, target.port), options.connectTimeoutMs)
             raw.soTimeout = options.readTimeoutMs
-            val isTls = options.sni != null || target.port == DEFAULT_PORT
+            val isTls = options.useTls ?: (options.sni != null || target.port == DEFAULT_PORT)
             val ioSocket = if (isTls) {
                 val tls = tlsSocket(raw, target, options)
                 tls.startHandshake()

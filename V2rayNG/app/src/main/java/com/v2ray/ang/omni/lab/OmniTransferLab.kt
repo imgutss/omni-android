@@ -32,13 +32,19 @@ data class OmniTransferResult(
     val requestedUploadBytes: Int = 0,
     val downloadLimitBytes: Int = 0,
     val error: String? = null,
+    val downloadTtfbMs: Long? = null,
+    val downloadHttpStatus: Int? = null,
+    val priorAttemptDataBytes: Long = 0L,
+    val priorAttemptDurationMs: Long = 0L,
+    val attemptDurationMs: Long = 0L,
 ) {
     val downloadMBps: Double get() = rateMBps(downloadBytes, downloadDurationMs)
     val uploadMBps: Double get() = rateMBps(uploadBytes, uploadDurationMs)
     val downloadMbps: Double get() = downloadMBps * 8.0
     val uploadMbps: Double get() = uploadMBps * 8.0
-    val dataUsedBytes: Long get() = downloadBytes + uploadBytes
-    val durationMs: Long get() = downloadDurationMs + uploadDurationMs
+    val dataUsedBytes: Long get() = downloadBytes + uploadBytes + priorAttemptDataBytes
+    val downloadTotalDurationMs: Long get() = downloadDurationMs + (downloadTtfbMs ?: 0L)
+    val durationMs: Long get() = (attemptDurationMs.takeIf { it > 0L } ?: (downloadTotalDurationMs + uploadDurationMs)) + priorAttemptDurationMs
 }
 
 private fun rateMBps(bytes: Long, durationMs: Long): Double = if (bytes <= 0L || durationMs <= 0L) 0.0 else bytes / 1_048_576.0 / (durationMs / 1_000.0)
@@ -89,24 +95,31 @@ class OmniTransferLab(
     ): OmniTransferResult = withContext(Dispatchers.IO) {
         require(uploadBytes in MIN_TRANSFER_BYTES..MAX_TRANSFER_BYTES) { "Upload size is outside the bounded test range" }
         require(downloadLimitBytes in MIN_TRANSFER_BYTES..MAX_TRANSFER_BYTES) { "Download size is outside the bounded test range" }
+        val attemptStarted = System.nanoTime()
         val config = try {
             configurationFactory(originalConfig)
         } catch (error: Exception) {
-            return@withContext OmniTransferResult(false, requestedUploadBytes = if (uploadUrl == null) 0 else uploadBytes, downloadLimitBytes = downloadLimitBytes, error = error.message)
+            return@withContext OmniTransferResult(false, requestedUploadBytes = if (uploadUrl == null) 0 else uploadBytes, downloadLimitBytes = downloadLimitBytes, error = error.message, attemptDurationMs = elapsedMs(attemptStarted))
         }
-        if (!runtime.start(config)) return@withContext OmniTransferResult(false, requestedUploadBytes = if (uploadUrl == null) 0 else uploadBytes, downloadLimitBytes = downloadLimitBytes, error = "Core did not start")
+        if (!runtime.start(config)) return@withContext OmniTransferResult(false, requestedUploadBytes = if (uploadUrl == null) 0 else uploadBytes, downloadLimitBytes = downloadLimitBytes, error = "Core did not start", attemptDurationMs = elapsedMs(attemptStarted))
         var downloaded = 0L
         var uploaded = 0L
         var downloadDuration = 0L
         var uploadDuration = 0L
+        var downloadTtfb: Long? = null
+        var downloadStatus: Int? = null
+        var downloadBodyStarted = 0L
         var countingBody: CountingRequestBody? = null
         try {
             val client = clientFactory(runtime.socksPort)
             val downloadStarted = System.nanoTime()
             client.newCall(Request.Builder().url(downloadUrl).header("Connection", "close").build()).execute().use { response ->
+                downloadTtfb = elapsedMs(downloadStarted)
+                downloadStatus = response.code
                 if (!response.isSuccessful) throw java.io.IOException("Download HTTP ${response.code}")
                 val input = response.body.byteStream()
                 val buffer = ByteArray(32 * 1_024)
+                downloadBodyStarted = System.nanoTime()
                 while (downloaded < downloadLimitBytes) {
                     val wanted = minOf(buffer.size.toLong(), downloadLimitBytes - downloaded).toInt()
                     val read = input.read(buffer, 0, wanted)
@@ -114,25 +127,41 @@ class OmniTransferLab(
                     if (read == 0) continue
                     downloaded += read
                 }
+                downloadDuration = elapsedMs(downloadBodyStarted).coerceAtLeast(1L)
             }
-            downloadDuration = elapsedMs(downloadStarted).coerceAtLeast(1L)
+            if (downloaded != downloadLimitBytes.toLong()) {
+                throw java.io.IOException("Download ended after $downloaded of $downloadLimitBytes bytes")
+            }
             if (uploadUrl != null) {
                 val payload = ByteArray(uploadBytes) { (it % 251).toByte() }
-                val uploadStarted = System.nanoTime()
                 val body = CountingRequestBody(payload)
                 countingBody = body
                 client.newCall(Request.Builder().url(uploadUrl).post(body).build()).execute().use { response ->
                     uploaded = body.bytesWritten
                     if (!response.isSuccessful) throw java.io.IOException("Upload HTTP ${response.code}")
                 }
-                uploadDuration = elapsedMs(uploadStarted).coerceAtLeast(1L)
+                uploadDuration = body.writeDurationMs.coerceAtLeast(1L)
             }
-            OmniTransferResult(true, downloaded, uploaded, downloadDuration, uploadDuration, if (uploadUrl == null) 0 else uploadBytes, downloadLimitBytes)
+            OmniTransferResult(
+                true, downloaded, uploaded, downloadDuration, uploadDuration,
+                if (uploadUrl == null) 0 else uploadBytes, downloadLimitBytes,
+                downloadTtfbMs = downloadTtfb, downloadHttpStatus = downloadStatus,
+                attemptDurationMs = elapsedMs(attemptStarted),
+            )
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Exception) {
             uploaded = countingBody?.bytesWritten ?: uploaded
-            OmniTransferResult(false, downloaded, uploaded, downloadDuration, uploadDuration, if (uploadUrl == null) 0 else uploadBytes, downloadLimitBytes, error.message ?: error.javaClass.simpleName)
+            if (uploadDuration == 0L) uploadDuration = countingBody?.writeDurationMs ?: 0L
+            if (downloadDuration == 0L && downloadBodyStarted > 0L) {
+                downloadDuration = elapsedMs(downloadBodyStarted).coerceAtLeast(1L)
+            }
+            OmniTransferResult(
+                false, downloaded, uploaded, downloadDuration, uploadDuration,
+                if (uploadUrl == null) 0 else uploadBytes, downloadLimitBytes,
+                error.message ?: error.javaClass.simpleName, downloadTtfb, downloadStatus,
+                attemptDurationMs = elapsedMs(attemptStarted),
+            )
         } finally {
             runtime.stop()
         }
@@ -144,17 +173,26 @@ class OmniTransferLab(
 private class CountingRequestBody(private val payload: ByteArray) : RequestBody() {
     var bytesWritten: Long = 0L
         private set
+    var writeDurationMs: Long = 0L
+        private set
 
     override fun contentType() = "application/octet-stream".toMediaType()
     override fun contentLength(): Long = payload.size.toLong()
 
     override fun writeTo(sink: BufferedSink) {
-        var offset = 0
-        while (offset < payload.size) {
-            val count = minOf(32 * 1_024, payload.size - offset)
-            sink.write(payload, offset, count)
-            bytesWritten += count
-            offset += count
+        val started = System.nanoTime()
+        try {
+            var offset = 0
+            while (offset < payload.size) {
+                val count = minOf(32 * 1_024, payload.size - offset)
+                sink.write(payload, offset, count)
+                bytesWritten += count
+                offset += count
+            }
+            // Measure the request body, including its final socket flush, but not the server's response wait.
+            sink.flush()
+        } finally {
+            writeDurationMs = ((System.nanoTime() - started) / 1_000_000L).coerceAtLeast(1L)
         }
     }
 }

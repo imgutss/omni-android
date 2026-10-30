@@ -4,6 +4,7 @@ import com.v2ray.ang.dto.entities.ProfileItem
 import com.v2ray.ang.enums.EConfigType
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 
 class OmniEndpointConfigFactoryTest {
@@ -12,6 +13,8 @@ class OmniEndpointConfigFactoryTest {
         val template = ProfileItem(
             configType = EConfigType.VLESS,
             remarks = "Template",
+            description = "old.example.*** : 443",
+            subscriptionId = "sub-1",
             server = "old.example.com",
             serverPort = "443",
             password = "123e4567-e89b-12d3-a456-426614174000",
@@ -24,6 +27,9 @@ class OmniEndpointConfigFactoryTest {
         val built = OmniEndpointConfigFactory.build(template, OmniScanTarget("192.0.2.10", 8443, OmniTargetKind.IPV4), OmniBuildOptions(hostHeader = "cdn.example.com"))
         assertEquals("192.0.2.10", built.server)
         assertEquals("8443", built.serverPort)
+        assertEquals("Template · 192.0.2.10:8443", built.remarks)
+        assertNull(built.description, "the server list must regenerate the old endpoint description")
+        assertEquals("sub-1", built.subscriptionId)
         assertEquals(template.password, built.password)
         assertEquals("ws", built.network)
         assertEquals("/ray", built.path)

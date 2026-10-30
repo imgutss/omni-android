@@ -2,6 +2,7 @@ package com.v2ray.ang.omni
 
 import android.content.Intent
 import androidx.activity.viewModels
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -139,6 +140,29 @@ fun OmniHubScreen(
                     if (busy) CircularProgressIndicator(modifier = Modifier.width(24.dp).height(24.dp), strokeWidth = 2.dp)
                 }
             }
+            item {
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(stringResource(R.string.omni_hub_tools_title), style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.omni_hub_tools_subtitle), style = MaterialTheme.typography.bodySmall)
+                        OmniHubToolButton(R.string.omni_sync_title) {
+                            context.startActivity(Intent(context, OmniSyncCenterActivity::class.java))
+                        }
+                        OmniHubToolButton(R.string.omni_speed_title) {
+                            context.startActivity(Intent(context, OmniSpeedLabActivity::class.java))
+                        }
+                        OmniHubToolButton(R.string.omni_routing_title) {
+                            context.startActivity(Intent(context, OmniRoutingStudioActivity::class.java))
+                        }
+                        OmniHubToolButton(R.string.omni_dns_title) {
+                            context.startActivity(Intent(context, OmniDnsLabActivity::class.java))
+                        }
+                        OmniHubToolButton(R.string.omni_privacy_title) {
+                            context.startActivity(Intent(context, OmniPrivacyCenterActivity::class.java))
+                        }
+                    }
+                }
+            }
             message?.let { item { Text(it, color = if (state.messageIsError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary) } }
             if (panels.isEmpty() && !busy) {
                 item {
@@ -212,6 +236,13 @@ fun OmniHubScreen(
                 TextButton(onClick = { removeTarget = null }) { Text(stringResource(android.R.string.cancel)) }
             },
         )
+    }
+}
+
+@Composable
+private fun OmniHubToolButton(@StringRes labelRes: Int, onClick: () -> Unit) {
+    OutlinedButton(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
+        Text(stringResource(labelRes))
     }
 }
 
