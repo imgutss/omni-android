@@ -2,8 +2,8 @@ package com.v2ray.ang.omni.lab
 
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
-import org.junit.Assert.assertEquals
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Test
 
 class OmniScanRunnerTest {
     @Test

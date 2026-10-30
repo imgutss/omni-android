@@ -2,10 +2,10 @@ package com.v2ray.ang.omni.lab
 
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.net.InetAddress

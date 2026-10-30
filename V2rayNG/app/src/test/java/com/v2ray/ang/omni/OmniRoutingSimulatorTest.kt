@@ -1,8 +1,8 @@
 package com.v2ray.ang.omni
 
 import com.v2ray.ang.dto.entities.RulesetItem
-import org.junit.Assert.assertEquals
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Test
 
 class OmniRoutingSimulatorTest {
     @Test

@@ -1,7 +1,8 @@
 package com.v2ray.ang.omni.lab
 
-import org.junit.Assert.assertEquals
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Test
 
 class OmniProbeOptionsTest {
     @Test
@@ -18,8 +19,10 @@ class OmniProbeOptionsTest {
         assertEquals("/ws", options.httpPath)
     }
 
-    @Test(expected = IllegalArgumentException::class)
+    @Test
     fun rejectsRequestHeaderInjection() {
-        OmniProbeOptions(hostHeader = "example.com\r\nX-Injected: yes")
+        assertThrows(IllegalArgumentException::class.java) {
+            OmniProbeOptions(hostHeader = "example.com\r\nX-Injected: yes")
+        }
     }
 }

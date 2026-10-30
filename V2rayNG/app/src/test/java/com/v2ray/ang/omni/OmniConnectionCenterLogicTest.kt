@@ -2,9 +2,9 @@ package com.v2ray.ang.omni
 
 import com.v2ray.ang.dto.entities.ProfileItem
 import com.v2ray.ang.enums.EConfigType
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
 
 class OmniConnectionCenterLogicTest {
     private val ready = OmniConnectionCenterUiState(selectedGuid = "guid", selectedProfile = ProfileItem(configType = EConfigType.VLESS), status = OmniConnectionStatus.STOPPED)

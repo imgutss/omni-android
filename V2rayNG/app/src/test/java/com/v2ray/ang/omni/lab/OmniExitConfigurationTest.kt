@@ -1,9 +1,10 @@
 package com.v2ray.ang.omni.lab
 
 import com.google.gson.JsonParser
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
 
 class OmniExitConfigurationTest {
     @Test
@@ -31,8 +32,10 @@ class OmniExitConfigurationTest {
         assertTrue(root.has("routing"))
     }
 
-    @Test(expected = IllegalArgumentException::class)
+    @Test
     fun rejectsConfigurationWithoutOutbounds() {
-        createOmniExitConfiguration("{}", 10808)
+        assertThrows(IllegalArgumentException::class.java) {
+            createOmniExitConfiguration("{}", 10808)
+        }
     }
 }

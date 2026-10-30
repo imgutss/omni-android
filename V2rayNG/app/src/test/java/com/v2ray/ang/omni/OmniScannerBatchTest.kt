@@ -5,8 +5,8 @@ import com.v2ray.ang.enums.EConfigType
 import com.v2ray.ang.omni.lab.OmniBuiltConfiguration
 import com.v2ray.ang.omni.lab.OmniScanTarget
 import com.v2ray.ang.omni.lab.OmniTargetKind
-import org.junit.Assert.assertEquals
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Test
 
 class OmniScannerBatchTest {
     @Test
