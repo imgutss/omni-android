@@ -256,5 +256,6 @@ jobs:
         sha256sum ./*.apk > SHA256SUMS
         gh release create "v${RELEASE_VERSION}" ./*.apk ./SHA256SUMS \
           --repo "$RELEASE_REPOSITORY" \
+          --target "${{ github.sha }}" \
           --title "Omni v${RELEASE_VERSION}" \
           --generate-notes
