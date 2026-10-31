@@ -5,6 +5,7 @@ import com.v2ray.ang.core.AetherDelayTester
 import com.v2ray.ang.core.CoreConfigContextBuilder
 import com.v2ray.ang.core.CoreConfigManager
 import com.v2ray.ang.core.CoreNativeManager
+import com.v2ray.ang.core.MasterDnsDelayTester
 import com.v2ray.ang.dto.RealPingEvent
 import com.v2ray.ang.enums.EConfigType
 import com.v2ray.ang.extension.isComplexType
@@ -141,6 +142,17 @@ class RealPingWorkerService(
         if (!configResult.status) {
             return retFailure
         }
+        val masterDns = configResult.masterDnsCore
+        if (masterDns != null) {
+            // The Xray probe must run beside the real MasterDNS engine, not against its empty port.
+            return measureRealSamples {
+                MasterDnsDelayTester.measureVia(context, guid, masterDns) { _, _ ->
+                    RealPingExecutionLimiter.run(config.configType) {
+                        CoreNativeManager.measureOutboundDelay(configResult.content, SettingsManager.getDelayTestUrl(), batch)
+                    }
+                }
+            }
+        }
         val aether = configResult.aetherCore
         if (aether != null) {
             // The configuration reaches the internet through an Aether outbound, so it is measured behind
@@ -208,6 +220,8 @@ class RealPingWorkerService(
         if (config.configType == EConfigType.AETHER) {
             return tcpStats(AetherDelayTester.reachability(config))
         }
+        // A DNS-tunnel profile has no ordinary TCP endpoint to ping; leave it explicitly untested.
+        if (config.configType == EConfigType.MASTERDNS) return tcpStats(AetherDelayTester.UNTESTED)
         if (!config.configType.isComplexType()
             && config.configType != EConfigType.HYSTERIA2
             && config.configType != EConfigType.WIREGUARD

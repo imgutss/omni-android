@@ -789,4 +789,24 @@
     <string name="sub_info_open_page">Abunəlik məlumat səhifəsini aç</string>
     <string name="sub_info_unlimited">Limitsiz</string>
 
+    <string name="masterdns_title">MasterDNS</string>
+    <string name="menu_item_import_config_manually_masterdns">MasterDNS</string>
+    <string name="masterdns_lab_config">Official client configuration (JSON or TOML)</string>
+    <string name="masterdns_hint_config">Paste client_config.json or client_config.toml</string>
+    <string name="masterdns_config_support">Omni passes this document to the official engine and supplies only the local listener and VPN socket protection.</string>
+    <string name="masterdns_lab_resolvers">DNS resolvers (one per line)</string>
+    <string name="masterdns_hint_resolvers">8.8.8.8\n1.1.1.1:5353</string>
+    <string name="masterdns_resolvers_support">IPv4, IPv6 or CIDR ranges, with an optional port.</string>
+    <string name="masterdns_engine_notice">Uses the official MIT-licensed MasterDnsVPN engine. WhiteDNS proprietary files and formats are not reused.</string>
+    <string name="masterdns_error_config_empty">Paste the MasterDNS client configuration.</string>
+    <string name="masterdns_error_config_large">The MasterDNS configuration is too large.</string>
+    <string name="masterdns_error_config">Enter a valid MasterDNS JSON or TOML configuration.</string>
+    <string name="masterdns_error_domains">DOMAINS must contain at least one tunnel domain.</string>
+    <string name="masterdns_error_key">ENCRYPTION_KEY is required unless DATA_ENCRYPTION_METHOD is 0.</string>
+    <string name="masterdns_error_resolvers">Enter valid resolver IP addresses or CIDR ranges, one per line.</string>
+    <string name="masterdns_unsupported_abi">This build has no MasterDNS core for this device.</string>
+    <string name="masterdns_core_connecting">MasterDNS is connecting…</string>
+    <string name="masterdns_core_stopped">The MasterDNS core stopped.</string>
+    <string name="masterdns_port_taken">MasterDNS cannot use local port %1$d because it is already in use.</string>
+    <string name="masterdns_unsupported_combination">MasterDNS currently works only as a standalone primary profile, not inside a chain or policy group.</string>
 </resources>

@@ -163,6 +163,12 @@ data class ProfileItem(
 
     /** The command line of this profile's core, written by hand in place of the one built from the settings; null follows the settings. */
     var aetherCommand: String? = null,
+
+    /** Official MasterDnsVPN client JSON or TOML, kept as imported for its own Go engine. */
+    var masterDnsConfig: String? = null,
+
+    /** Official client_resolvers.txt content; blank means the documented sample default. */
+    var masterDnsResolvers: String? = null,
 ) {
 
     companion object {
@@ -210,6 +216,7 @@ data class ProfileItem(
         if (server.isNullOrEmpty() && configType == EConfigType.CUSTOM) {
             return "${AppConfig.LOOPBACK}:${AppConfig.PORT_SOCKS}"
         }
+        if (configType == EConfigType.MASTERDNS) return server.orEmpty()
         return "${Utils.getIpv6Address(server)}:$serverPort"
     }
 

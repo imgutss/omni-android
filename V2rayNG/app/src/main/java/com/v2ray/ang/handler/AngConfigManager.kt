@@ -17,6 +17,7 @@ import com.v2ray.ang.extension.isNotNullEmpty
 import com.v2ray.ang.fmt.AetherFmt
 import com.v2ray.ang.fmt.CustomFmt
 import com.v2ray.ang.fmt.Hysteria2Fmt
+import com.v2ray.ang.fmt.MasterDnsFmt
 import com.v2ray.ang.fmt.ShadowsocksFmt
 import com.v2ray.ang.fmt.SocksFmt
 import com.v2ray.ang.fmt.TrojanFmt
@@ -53,6 +54,7 @@ object AngConfigManager {
             EConfigType.HYSTERIA2.protocolScheme to Hysteria2Fmt::parse,
             AppConfig.HY2 to Hysteria2Fmt::parse,
             EConfigType.AETHER.protocolScheme to AetherFmt::parse,
+            EConfigType.MASTERDNS.protocolScheme to MasterDnsFmt::parse,
         )
     }
 
@@ -169,6 +171,7 @@ object AngConfigManager {
                 EConfigType.WIREGUARD -> WireguardFmt.toUri(config)
                 EConfigType.HYSTERIA2 -> Hysteria2Fmt.toUri(config)
                 EConfigType.AETHER -> AetherFmt.toUri(config)
+                EConfigType.MASTERDNS -> MasterDnsFmt.toUri(config)
                 else -> {}
             }
         } catch (e: Exception) {
@@ -332,6 +335,12 @@ object AngConfigManager {
     private fun parseCustomConfigServer(server: String?, subid: String, append: Boolean): Int {
         if (server == null) {
             return 0
+        }
+        MasterDnsFmt.parseAny(server)?.let { config ->
+            config.subscriptionId = subid
+            config.description = generateDescription(config)
+            commitProfiles(listOf(ParsedProfile(config)), subid, append)
+            return 1
         }
         if (server.contains("inbounds")
             && server.contains("outbounds")
@@ -663,6 +672,9 @@ object AngConfigManager {
         val server = profile.server
         val port = profile.serverPort
         if (server.isNullOrBlank() && port.isNullOrBlank()) return ""
+        if (profile.configType == EConfigType.MASTERDNS) {
+            return server?.split('.')?.dropLast(1)?.joinToString(".", postfix = ".***").orEmpty()
+        }
 
         val addrPart = server?.let {
             if (it.contains(":"))

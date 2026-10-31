@@ -795,4 +795,24 @@
     <string name="sub_info_unlimited">نامحدود</string>
 
     <string name="title_omni_panel">Omni Hub</string>
+    <string name="masterdns_title">MasterDNS</string>
+    <string name="menu_item_import_config_manually_masterdns">MasterDNS</string>
+    <string name="masterdns_lab_config">پیکربندی رسمی کلاینت (JSON یا TOML)</string>
+    <string name="masterdns_hint_config">فایل client_config.json یا client_config.toml را بچسبانید</string>
+    <string name="masterdns_config_support">این سند به موتور رسمی داده می‌شود؛ Omni فقط listener محلی و محافظت socket VPN را تنظیم می‌کند.</string>
+    <string name="masterdns_lab_resolvers">resolverهای DNS (یکی در هر خط)</string>
+    <string name="masterdns_hint_resolvers">8.8.8.8\n1.1.1.1:5353</string>
+    <string name="masterdns_resolvers_support">نشانی IPv4، IPv6 یا بازهٔ CIDR با پورت اختیاری.</string>
+    <string name="masterdns_engine_notice">از موتور رسمی MasterDnsVPN با مجوز MIT استفاده می‌شود؛ فایل‌ها و فرمت‌های proprietary وایت‌دی‌ان‌اس استفاده نمی‌شوند.</string>
+    <string name="masterdns_error_config_empty">پیکربندی کلاینت MasterDNS را وارد کنید.</string>
+    <string name="masterdns_error_config_large">پیکربندی MasterDNS بیش از اندازه بزرگ است.</string>
+    <string name="masterdns_error_config">پیکربندی JSON یا TOML معتبر MasterDNS وارد کنید.</string>
+    <string name="masterdns_error_domains">DOMAINS باید دست‌کم یک دامنهٔ tunnel داشته باشد.</string>
+    <string name="masterdns_error_key">اگر DATA_ENCRYPTION_METHOD صفر نیست، ENCRYPTION_KEY لازم است.</string>
+    <string name="masterdns_error_resolvers">در هر خط یک نشانی IP یا بازهٔ CIDR معتبر برای resolver وارد کنید.</string>
+    <string name="masterdns_unsupported_abi">این بسته موتور MasterDNS مناسب دستگاه شما را ندارد.</string>
+    <string name="masterdns_core_connecting">MasterDNS در حال اتصال است…</string>
+    <string name="masterdns_core_stopped">موتور MasterDNS متوقف شد.</string>
+    <string name="masterdns_port_taken">پورت محلی %1$d از قبل در استفاده است و MasterDNS نمی‌تواند از آن استفاده کند.</string>
+    <string name="masterdns_unsupported_combination">MasterDNS فعلاً فقط به‌عنوان پروفایل اصلی مستقل کار می‌کند و داخل chain یا policy-group پشتیبانی نمی‌شود.</string>
 </resources>

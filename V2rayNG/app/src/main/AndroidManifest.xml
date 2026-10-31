@@ -113,6 +113,10 @@
             android:exported="false"
             android:windowSoftInputMode="stateUnchanged|adjustResize" />
         <activity
+            android:name=".ui.server.ServerMasterDnsActivity"
+            android:exported="false"
+            android:windowSoftInputMode="stateUnchanged|adjustResize" />
+        <activity
             android:name=".ui.server.ServerAetherKeysActivity"
             android:exported="false"
             android:windowSoftInputMode="stateUnchanged|adjustResize" />
@@ -238,6 +242,7 @@
                 <data android:scheme="tuic" />
                 <data android:scheme="wireguard" />
                 <data android:scheme="aether" />
+                <data android:scheme="masterdns" />
                 <data android:scheme="omni" />
             </intent-filter>
             <intent-filter>

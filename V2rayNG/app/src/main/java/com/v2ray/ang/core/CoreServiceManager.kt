@@ -59,6 +59,9 @@ object CoreServiceManager {
 
     /** The Aether core the running configuration depends on, null when it has no Aether outbound. */
     private var currentAether: AetherCore? = null
+
+    /** The official MasterDnsVPN process the running configuration depends on, if any. */
+    private var currentMasterDns: MasterDnsCore? = null
     private var processFinder: XrayProcessFinder? = null
     private var browserDialer: IDialerService? = null
 
@@ -74,6 +77,12 @@ object CoreServiceManager {
     /** Set once an Aether exit has stopped the service, so a second report of the same exit is a no-op. */
     @Volatile
     private var aetherExitHandled = false
+
+    private val masterDnsScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var masterDnsWarmUpJob: Job? = null
+
+    @Volatile
+    private var masterDnsExitHandled = false
 
     @Volatile
     private var isReloading = false
@@ -195,6 +204,7 @@ object CoreServiceManager {
         if (!goesOn()) return false
 
         cancelAetherWarmUp()
+        cancelMasterDnsWarmUp()
         // Starting a configuration ends the config tests, whatever the configuration: that is what a start
         // means to the user, and the tests spawn Aether cores of their own, which a session's core must not
         // come up beside, on the same key or with Psiphon on the same datastore. The same goes for the test
@@ -221,21 +231,33 @@ object CoreServiceManager {
                 refuseAether(service, guid, isReload, refusal.reason) { service.getString(refusal.message, refusal.argument) }
             }
         }
-        // A reload still has the previous session's core; it ends before Xray starts again. The new core,
-        // if any, starts once Xray listens, see launchNativeCore.
+        val masterDns = result.masterDnsCore
+        if (masterDns != null) {
+            if (!MasterDnsCoreManager.isSupported(service)) {
+                throw StartFailure(service.getString(R.string.masterdns_unsupported_abi))
+            }
+            if (AetherDependency.inboundListensOn(result.content, masterDns.port)) {
+                throw StartFailure(service.getString(R.string.masterdns_port_taken, masterDns.port))
+            }
+        }
+        // A reload still has the previous session's cores; they end before Xray starts again. New
+        // external cores start once Xray listens, see launchNativeCore.
         AetherCoreManager.stop()
+        MasterDnsCoreManager.stop()
         if (aether != null) {
             checkAetherPorts(service, guid, aether, result.content, isReload)
-            // The check can take seconds. A reload starts Xray again only while the monitor that asked for it is
-            // still the service's (the handover rule of NetworkMonitor): a stop that came meanwhile owns what follows.
-            if (!goesOn()) return false
         }
+        if (masterDns != null) {
+            checkMasterDnsPort(service, guid, masterDns, isReload)
+        }
+        if ((aether != null || masterDns != null) && !goesOn()) return false
 
         try {
-            launchNativeCore(service, guid, config, aether, result.content, vpnInterface, isReload)
+            launchNativeCore(service, guid, config, aether, masterDns, result.content, vpnInterface, isReload)
         } catch (e: Exception) {
-            // Setup failed after this attempt spawned the Aether process; release it with the rest.
+            // Setup failed after this attempt spawned an external process; release both kinds.
             AetherCoreManager.stop()
+            MasterDnsCoreManager.stop()
             throw e
         }
         return true
@@ -251,6 +273,7 @@ object CoreServiceManager {
             "StartCore-Manager: ${service.javaClass.simpleName} ${if (isReload) "reload" else "start"} refused, $reason, guid=$guid"
         )
         AetherCoreManager.stop()
+        MasterDnsCoreManager.stop()
         throw StartFailure(message())
     }
 
@@ -294,18 +317,41 @@ object CoreServiceManager {
         }
     }
 
+    /**
+     * The same pre-Xray leak check for MasterDnsVPN's loopback SOCKS listener. Its bounded main-
+     * thread wait prevents Xray from ever sending this profile to an unrelated existing listener.
+     */
+    @Throws(Exception::class)
+    private fun checkMasterDnsPort(service: Service, guid: String, core: MasterDnsCore, isReload: Boolean) {
+        val attempt = "${service.javaClass.simpleName} ${if (isReload) "reload" else "start"}"
+        when (val check = MasterDnsCoreManager.checkSessionPort(core.port)) {
+            MasterDnsCoreManager.PortCheck.Free -> Unit
+            MasterDnsCoreManager.PortCheck.Taken -> {
+                LogUtil.w(AppConfig.TAG, "StartCore-Manager: $attempt refused, MasterDNS port ${core.port} is taken, guid=$guid")
+                throw StartFailure(service.getString(R.string.masterdns_port_taken, core.port))
+            }
+            is MasterDnsCoreManager.PortCheck.Unchecked -> {
+                val message = "StartCore-Manager: $attempt could not check the MasterDNS port, guid=$guid"
+                check.cause?.let { LogUtil.w(AppConfig.TAG, message, it) } ?: LogUtil.w(AppConfig.TAG, message)
+                throw IllegalStateException("The MasterDNS session port could not be checked", check.cause)
+            }
+        }
+    }
+
     @Throws(Exception::class)
     private fun launchNativeCore(
         service: Service,
         guid: String,
         config: ProfileItem,
         aether: AetherCore?,
+        masterDns: MasterDnsCore?,
         content: String,
         vpnInterface: ParcelFileDescriptor?,
         isReload: Boolean,
     ) {
         currentConfig = config
         currentAether = aether
+        currentMasterDns = masterDns
         var tunFd = vpnInterface?.fd ?: 0
         val dialerMode = BrowserDialerMode.from(config.browserDialerMode)
         val dialerAddr = if (dialerMode != null) {
@@ -334,6 +380,15 @@ object CoreServiceManager {
             aetherExitHandled = false
             AetherCoreManager.start(service, aether, afterProbes = !isReload) { onAetherExit(guid) }
         }
+        if (masterDns != null) {
+            masterDnsExitHandled = false
+            val protect: ((Int) -> Boolean)? = if (vpnInterface == null) null else { fd ->
+                // CoreVpnService remains the owner of Android socket protection; proxy and root modes
+                // pass no VPN descriptor and therefore no protect endpoint to the Go client.
+                serviceControl?.get()?.vpnProtect(fd) == true
+            }
+            MasterDnsCoreManager.start(service, masterDns, protect) { onMasterDnsExit(guid) }
+        }
 
         if (browserDialer != null) {
             browserDialer!!.stop()
@@ -355,6 +410,8 @@ object CoreServiceManager {
 
         if (aether != null) {
             announceAetherWarmUp(service, guid, isReload)
+        } else if (masterDns != null) {
+            announceMasterDnsWarmUp(service, guid, isReload)
         } else if (!isReload) {
             MessageHelper.sendMsg2UI(service, AppConfig.MSG_STATE_START_SUCCESS, "")
         }
@@ -399,6 +456,47 @@ object CoreServiceManager {
         NotificationManager.setStatusLine(null)
     }
 
+    /** Reports ready only after the official client's SOCKS5 listener answers its greeting. */
+    private fun announceMasterDnsWarmUp(service: Service, guid: String, isReload: Boolean) {
+        val connecting = service.getString(R.string.masterdns_core_connecting)
+        MessageHelper.sendMsg2UI(service, AppConfig.MSG_STATE_RUNNING, "")
+        MessageHelper.sendMsg2UI(service, AppConfig.MSG_STATE_CONNECTING, connecting)
+        NotificationManager.setStatusLine(connecting)
+        masterDnsWarmUpJob = masterDnsScope.launch {
+            var listening = false
+            while (isActive && !listening && MasterDnsCoreManager.isRunning) {
+                listening = MasterDnsCoreManager.awaitListening(AETHER_WARM_UP_MS)
+            }
+            when (AetherCoreManager.warmUpOutcome(listening, isActive, isRunning())) {
+                AetherCoreManager.WarmUpOutcome.ABANDONED -> Unit
+                AetherCoreManager.WarmUpOutcome.CORE_EXITED -> onMasterDnsExit(guid)
+                AetherCoreManager.WarmUpOutcome.LISTENING -> {
+                    NotificationManager.setStatusLine(null)
+                    val ready = if (isReload) AppConfig.MSG_STATE_RUNNING else AppConfig.MSG_STATE_START_SUCCESS
+                    MessageHelper.sendMsg2UI(service, ready, "")
+                }
+            }
+        }
+    }
+
+    private fun cancelMasterDnsWarmUp() {
+        masterDnsWarmUpJob?.cancel()
+        masterDnsWarmUpJob = null
+        NotificationManager.setStatusLine(null)
+    }
+
+    private fun onMasterDnsExit(guid: String) {
+        val control = serviceControl?.get() ?: return
+        val service = control.getService()
+        ContextCompat.getMainExecutor(service).execute {
+            if (masterDnsExitHandled || MasterDnsCoreManager.isRunning || !isRunning() || serviceControl?.get() !== control) return@execute
+            masterDnsExitHandled = true
+            LogUtil.e(AppConfig.TAG, "StartCore-Manager: MasterDNS core exited while running, stopping ${service.javaClass.simpleName}, guid=$guid")
+            MessageHelper.sendMsg2UI(service, AppConfig.MSG_STATE_START_FAILURE, service.getString(R.string.masterdns_core_stopped))
+            control.stopService()
+        }
+    }
+
     /**
      * Stops the service once the Aether core is gone while Xray still runs. Reached from the
      * core's exit callback and from the warm-up wait, so the stop happens once per session.
@@ -434,7 +532,9 @@ object CoreServiceManager {
         // root service tear down in onDestroy, out of the foreground already, where a post outlives them.
         NotificationManager.cancelNotification()
         cancelAetherWarmUp()
+        cancelMasterDnsWarmUp()
         AetherCoreManager.stop()
+        MasterDnsCoreManager.stop()
 
         if (isRunning()) {
             CoroutineScope(Dispatchers.IO).launch {
@@ -591,7 +691,9 @@ object CoreServiceManager {
             )
             NotificationManager.cancelNotification()
             cancelAetherWarmUp()
+            cancelMasterDnsWarmUp()
             AetherCoreManager.stop()
+            MasterDnsCoreManager.stop()
             try {
                 coreController.stopLoop()
             } catch (e: Exception) {
@@ -654,6 +756,14 @@ object CoreServiceManager {
             // The same budget every other profile's probe gets; a tunnel still scanning past it is reported, not waited for.
             if (currentAether != null && !AetherCoreManager.awaitListening(AetherDelayTester.TEST_BUDGET_MS)) {
                 val reason = if (AetherCoreManager.isRunning) R.string.aether_core_connecting else R.string.aether_core_stopped
+                val stalled = ConnectionTestResult(delayMillis = -1L, errorMessage = service.getString(reason))
+                withContext(Dispatchers.Main.immediate) {
+                    MessageHelper.sendMsg2UI(service, AppConfig.MSG_MEASURE_DELAY_RESULT, stalled, requestId)
+                }
+                return@launch
+            }
+            if (currentMasterDns != null && !MasterDnsCoreManager.awaitListening(AetherDelayTester.TEST_BUDGET_MS)) {
+                val reason = if (MasterDnsCoreManager.isRunning) R.string.masterdns_core_connecting else R.string.masterdns_core_stopped
                 val stalled = ConnectionTestResult(delayMillis = -1L, errorMessage = service.getString(reason))
                 withContext(Dispatchers.Main.immediate) {
                     MessageHelper.sendMsg2UI(service, AppConfig.MSG_MEASURE_DELAY_RESULT, stalled, requestId)

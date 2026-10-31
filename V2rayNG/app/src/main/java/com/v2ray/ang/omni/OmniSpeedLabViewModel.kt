@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.v2ray.ang.core.CoreConfigManager
+import com.v2ray.ang.core.MasterDnsDelayTester
 import com.v2ray.ang.dto.RealPingEvent
 import com.v2ray.ang.omni.lab.OmniTransferLab
 import com.v2ray.ang.omni.lab.OmniTransferResult
@@ -140,26 +141,28 @@ class OmniSpeedLabViewModel(application: Application) : AndroidViewModel(applica
                             runtime = OmniNativeCoreRuntime(getApplication())
                             activeRuntime = runtime
                             val lab = OmniTransferLab(runtime)
-                            var transfer = lab.measure(
-                                config.content,
-                                attemptedUrl,
-                                uploadUrl,
-                                uploadSize ?: 1_048_576,
-                                downloadSize,
-                            )
+                            val masterDns = config.masterDnsCore
+                            var coreUnavailable = false
+                            suspend fun measure(url: String): OmniTransferResult {
+                                val operation: suspend () -> OmniTransferResult = {
+                                    lab.measure(config.content, url, uploadUrl, uploadSize ?: 1_048_576, downloadSize)
+                                }
+                                return if (masterDns == null) {
+                                    operation()
+                                } else {
+                                    MasterDnsDelayTester.withCore(
+                                        getApplication(), masterDns, MasterDnsDelayTester.STARTUP_BUDGET_MS, profile.guid, operation,
+                                    ) ?: OmniTransferResult(false, error = "MasterDNS core did not start").also { coreUnavailable = true }
+                                }
+                            }
+                            var transfer = measure(attemptedUrl)
                             ensureActive()
-                            if (!transfer.success && attemptedUrl == OMNI_SPEED_CLOUDFLARE_DOWNLOAD) {
+                            if (!transfer.success && !coreUnavailable && attemptedUrl == OMNI_SPEED_CLOUDFLARE_DOWNLOAD) {
                                 val cloudflareAttempt = transfer
                                 attemptedUrl = OMNI_SPEED_OVH_DOWNLOAD
                                 usedFallback = true
                                 ensureActive()
-                                transfer = lab.measure(
-                                    config.content,
-                                    attemptedUrl,
-                                    uploadUrl,
-                                    uploadSize ?: 1_048_576,
-                                    downloadSize,
-                                ).copy(
+                                transfer = measure(attemptedUrl).copy(
                                     priorAttemptDataBytes = cloudflareAttempt.dataUsedBytes,
                                     priorAttemptDurationMs = cloudflareAttempt.durationMs,
                                 )

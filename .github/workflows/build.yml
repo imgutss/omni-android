@@ -101,6 +101,29 @@ jobs:
         # The client is built from a checkout of its own; there is no go.sum here to cache by.
         cache: false
 
+    - name: Restore cached MasterDnsVPN client
+      id: cache-masterdns-restore
+      uses: actions/cache/restore@v6
+      with:
+        path: ${{ github.workspace }}/libs-masterdns
+        key: masterdns-${{ runner.os }}-${{ env.GO_VERSION }}-${{ hashFiles('compile-masterdns.sh', 'third_party/masterdnsvpn/**') }}
+
+    - name: Build MasterDnsVPN client
+      if: steps.cache-masterdns-restore.outputs.cache-hit != 'true'
+      run: bash compile-masterdns.sh
+
+    - name: Test MasterDnsVPN upstream packages
+      run: |
+        cd third_party/masterdnsvpn
+        GOTOOLCHAIN=local CGO_ENABLED=0 go test ./...
+
+    - name: Save MasterDnsVPN client
+      if: steps.cache-masterdns-restore.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: ${{ github.workspace }}/libs-masterdns
+        key: masterdns-${{ runner.os }}-${{ env.GO_VERSION }}-${{ hashFiles('compile-masterdns.sh', 'third_party/masterdnsvpn/**') }}
+
     # The Aether core runs Psiphon as a program of its own, the psiphon-tunnel-core console client,
     # which the app ships beside the core as libpsiphon-tunnel-core.so; see compile-psiphon.sh.
     - name: Restore cached Psiphon client
@@ -149,6 +172,7 @@ jobs:
         cp -r ${{ github.workspace }}/libs-aether/. ${{ github.workspace }}/V2rayNG/app/libs/
         cp -r ${{ github.workspace }}/libs-psiphon/. ${{ github.workspace }}/V2rayNG/app/libs/
         cp -r ${{ github.workspace }}/libs-pt/. ${{ github.workspace }}/V2rayNG/app/libs/
+        cp -r ${{ github.workspace }}/libs-masterdns/. ${{ github.workspace }}/V2rayNG/app/libs/
 
     # Psiphon's client starts with the newest server list the build could fetch, so a fresh install has
     # servers before it can reach the list on its own; see fetch-psiphon-servers.sh.
@@ -213,6 +237,13 @@ jobs:
                 status=1
               fi
             done
+          done
+          for abi in arm64-v8a armeabi-v7a x86_64 x86; do
+            echo "$entries" | grep -q "^lib/$abi/" || continue
+            if ! echo "$entries" | grep -qx "lib/$abi/libmasterdns.so"; then
+              echo "::error::$(basename "$apk") lacks lib/$abi/libmasterdns.so"
+              status=1
+            fi
           done
         done
         exit $status

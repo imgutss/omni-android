@@ -35,6 +35,20 @@ class CoreOutboundBuilderTest {
     }
 
     @Test
+    fun masterDnsBuildsALoopbackSocksOutboundForTheOfficialCore() {
+        val profile = ProfileItem.create(EConfigType.MASTERDNS).apply {
+            masterDnsConfig = """{"DOMAINS":["v.example.com"],"ENCRYPTION_KEY":"secret"}"""
+            masterDnsResolvers = "8.8.8.8"
+        }
+
+        val outbound = CoreOutboundBuilder.toOutboundMasterDns(profile)
+
+        assertEquals("socks", outbound?.protocol)
+        assertEquals("127.0.0.1", outbound?.settings?.address)
+        assertEquals(18000, outbound?.settings?.port)
+    }
+
+    @Test
     fun test_applyDialMode_setsSockoptDialMode() {
         val outbound = OutboundBean(protocol = "vless", streamSettings = OutboundBean.StreamSettingsBean())
 

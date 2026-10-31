@@ -115,7 +115,9 @@ class ServerUiState(
     aetherTorBridges: String = AetherTorBridges.AUTO.type,
     aetherTorBridgeLines: String = "",
     aetherTorRelays: String = AetherTorRelays.AUTO.type,
-    aetherCommand: String = ""
+    aetherCommand: String = "",
+    masterDnsConfig: String = "",
+    masterDnsResolvers: String = "8.8.8.8",
 ) {
     var configType by mutableStateOf(configType)
     var remarks by mutableStateOf(remarks)
@@ -212,6 +214,8 @@ class ServerUiState(
     var aetherTorBridgeLines by mutableStateOf(aetherTorBridgeLines)
     var aetherTorRelays by mutableStateOf(aetherTorRelays)
     var aetherCommand by mutableStateOf(aetherCommand)
+    var masterDnsConfig by mutableStateOf(masterDnsConfig)
+    var masterDnsResolvers by mutableStateOf(masterDnsResolvers)
 
     /**
      * Whether an Aether setting the editor keeps folded away holds a value of its own, so that the
@@ -244,6 +248,8 @@ class ServerUiState(
     var isAddressError by mutableStateOf(false)
     var isPortError by mutableStateOf(false)
     var isPasswordError by mutableStateOf(false)
+    var isMasterDnsConfigError by mutableStateOf(false)
+    var isMasterDnsResolversError by mutableStateOf(false)
 
     /**
      * The profile the editor holds, built on [initialConfig]. An Aether profile's command line counts
@@ -259,6 +265,7 @@ class ServerUiState(
         val isWireguard = configType == EConfigType.WIREGUARD
         val isHysteria2 = configType == EConfigType.HYSTERIA2
         val isAether = configType == EConfigType.AETHER
+        val isMasterDns = configType == EConfigType.MASTERDNS
         val isPsiphon = isAether && aetherPsiphon != AetherPsiphon.OFF.type
         val isTor = isAether && aetherTor != AetherTor.OFF.type
 
@@ -357,6 +364,8 @@ class ServerUiState(
             aetherTorBridgeLines = if (isTor) aetherTorBridgeLines.nullIfBlank() else null,
             aetherTorRelays = if (isTor) aetherTorRelays else null,
             aetherCommand = null,
+            masterDnsConfig = if (isMasterDns) masterDnsConfig.trim() else null,
+            masterDnsResolvers = if (isMasterDns) masterDnsResolvers.trim() else null,
         )
         // A command that says what the settings say is no command of its own: the profile follows the settings.
         val command = aetherCommand.trim()
@@ -461,7 +470,9 @@ class ServerUiState(
                 aetherTorBridges = AetherTorBridges.fromString(initialConfig.aetherTorBridges).type,
                 aetherTorBridgeLines = initialConfig.aetherTorBridgeLines ?: "",
                 aetherTorRelays = AetherTorRelays.fromString(initialConfig.aetherTorRelays).type,
-                aetherCommand = initialConfig.aetherCommand ?: ""
+                aetherCommand = initialConfig.aetherCommand ?: "",
+                masterDnsConfig = initialConfig.masterDnsConfig ?: "",
+                masterDnsResolvers = initialConfig.masterDnsResolvers ?: "8.8.8.8",
             )
 
         fun from(

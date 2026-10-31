@@ -1,6 +1,7 @@
 package com.v2ray.ang.dto
 
 import com.v2ray.ang.core.AetherCore
+import com.v2ray.ang.core.MasterDnsCore
 
 data class ConfigResult(
     var status: Boolean,
@@ -11,4 +12,6 @@ data class ConfigResult(
     var localizedError: Boolean = false,
     /** The Aether core the configuration runs on, when it has an Aether outbound; the daemon starts it. */
     var aetherCore: AetherCore? = null,
+    /** The official MasterDnsVPN process the loopback SOCKS outbound depends on. */
+    var masterDnsCore: MasterDnsCore? = null,
 )

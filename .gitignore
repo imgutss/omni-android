@@ -70,3 +70,6 @@ Thumbs.db
 
 # Written by fetch-psiphon-servers.sh for every build beside psiphon_servers.dat (which *.dat covers).
 V2rayNG/app/src/main/assets/psiphon_servers.stamp
+
+# Generated MasterDnsVPN Android executables
+/libs-masterdns/

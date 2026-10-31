@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.v2ray.ang.core.CoreConfigManager
+import com.v2ray.ang.core.MasterDnsDelayTester
 import com.v2ray.ang.dto.RealPingEvent
 import com.v2ray.ang.omni.lab.OmniTransferLab
 import com.v2ray.ang.omni.lab.OmniTransferResult
@@ -331,13 +332,27 @@ class OmniScannerViewModel(application: Application) : AndroidViewModel(applicat
                     return@launch
                 }
                 val lab = OmniTransferLab(OmniNativeCoreRuntime(getApplication()))
-                val connection = lab.connectivity(config.content, downloadUrl)
+                val masterDns = config.masterDnsCore
+                val connection = if (masterDns == null) {
+                    lab.connectivity(config.content, downloadUrl)
+                } else {
+                    MasterDnsDelayTester.withCore(
+                        getApplication(), masterDns, MasterDnsDelayTester.STARTUP_BUDGET_MS, guid,
+                    ) { lab.connectivity(config.content, downloadUrl) }
+                }
                 mutableState.update { it.copy(connectivity = connection) }
-                if (!connection.success) {
+                if (connection == null || !connection.success) {
                     mutableState.update { it.copy(message = OmniScannerMessage.SPEED_FAILED) }
                     return@launch
                 }
-                val transfer = lab.measure(config.content, downloadUrl, uploadUrl)
+                val transfer = if (masterDns == null) {
+                    lab.measure(config.content, downloadUrl, uploadUrl)
+                } else {
+                    MasterDnsDelayTester.withCore(
+                        getApplication(), masterDns, MasterDnsDelayTester.STARTUP_BUDGET_MS, guid,
+                    ) { lab.measure(config.content, downloadUrl, uploadUrl) }
+                        ?: OmniTransferResult(false, error = "MasterDNS core did not start")
+                }
                 mutableState.update { it.copy(transfer = transfer, message = if (transfer.success) null else OmniScannerMessage.SPEED_FAILED) }
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 throw cancelled
