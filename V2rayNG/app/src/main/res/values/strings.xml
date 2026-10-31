@@ -825,9 +825,25 @@
     <string name="masterdns_unsupported_combination">MasterDNS currently works only as a standalone primary profile, not inside a chain or policy group.</string>
 
     <string name="dnstt_title">DNSTT</string>
+    <string name="dnstt_lab_engine">Engine</string>
+    <string name="dnstt_engine_support">Official DNSTT or the SlipNet-compatible NoizDNS engine.</string>
+    <string name="dnstt_lab_noiz">NoizDNS mode</string>
+    <string name="dnstt_noiz_support">Enable the NoizDNS wire format, polling, and cover-traffic behavior.</string>
+    <string name="dnstt_lab_stealth">Stealth mode</string>
+    <string name="dnstt_stealth_support">Use variable labels and more cover traffic; requires NoizDNS mode.</string>
+    <string name="dnstt_lab_authoritative">Authoritative resolver</string>
+    <string name="dnstt_authoritative_support">Use the authoritative-server tuning expected by your DNSTT deployment.</string>
+    <string name="dnstt_lab_resolver_mode">Resolver distribution</string>
+    <string name="dnstt_lab_rr_spread">Round-robin spread</string>
+    <string name="dnstt_rr_spread_support">Number of resolvers per query, from 1 to 5.</string>
+    <string name="dnstt_lab_max_payload">DNS payload cap</string>
+    <string name="dnstt_max_payload_support">Zero uses the engine default; otherwise enter the per-query byte cap.</string>
+    <string name="dnstt_lab_socks_username">Remote SOCKS username</string>
+    <string name="dnstt_lab_socks_password">Remote SOCKS password</string>
+    <string name="dnstt_noiz_engine_notice">Uses the pinned SlipNet-compatible NoizDNS engine. The remote tunnel endpoint must provide a compatible SOCKS5 service; Android VPN connectivity still depends on the server and network.</string>
     <string name="menu_item_import_config_manually_dnstt">DNSTT</string>
     <string name="dnstt_lab_transport">Transport</string>
-    <string name="dnstt_transport_support">The official client supports DNS-over-HTTPS, DNS-over-TLS, and UDP DNS.</string>
+    <string name="dnstt_transport_support">Official DNSTT supports DoH, DoT, and UDP; the NoizDNS engine also supports plain TCP DNS.</string>
     <string name="dnstt_lab_resolver">Resolver or DoH URL</string>
     <string name="dnstt_hint_resolver">https://cloudflare-dns.com/dns-query or 1.1.1.1:53</string>
     <string name="dnstt_resolver_support">Use an HTTPS URL for DoH; use host:port for DoT or UDP.</string>

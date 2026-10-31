@@ -20,6 +20,7 @@ import com.v2ray.ang.fmt.DnsttFmt
 import com.v2ray.ang.fmt.Hysteria2Fmt
 import com.v2ray.ang.fmt.MasterDnsFmt
 import com.v2ray.ang.fmt.ShadowsocksFmt
+import com.v2ray.ang.fmt.SlipNetFmt
 import com.v2ray.ang.fmt.SocksFmt
 import com.v2ray.ang.fmt.TrojanFmt
 import com.v2ray.ang.fmt.V2rayNFmt
@@ -57,6 +58,7 @@ object AngConfigManager {
             EConfigType.AETHER.protocolScheme to AetherFmt::parse,
             EConfigType.MASTERDNS.protocolScheme to MasterDnsFmt::parse,
             EConfigType.DNSTT.protocolScheme to DnsttFmt::parse,
+            AppConfig.SLIPNET to SlipNetFmt::parse,
         )
     }
 

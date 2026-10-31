@@ -282,6 +282,7 @@ object AppConfig {
     const val AETHER = "aether://"
     const val MASTERDNS = "masterdns://"
     const val DNSTT = "dnstt://"
+    const val SLIPNET = "slipnet://"
 
     /** Give a good name to this, IDK*/
     const val VPN = "VPN"

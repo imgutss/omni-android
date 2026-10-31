@@ -65,6 +65,28 @@ class DnsttFmtTest {
     }
 
     @Test
+    fun unsupportedOrContradictoryNoizControlsAreRejectedNotSilentlyDropped() {
+        val stealthWithoutNoiz = profile("udp", "1.1.1.1:53").apply {
+            dnsttEngine = DnsttFmt.ENGINE_NOIZDNS
+            dnsttStealth = true
+        }
+        assertEquals(DnsttFmt.Problem.TRANSPORT_INVALID, DnsttFmt.normalize(stealthWithoutNoiz))
+
+        val badPayload = profile("udp", "1.1.1.1:53").apply {
+            dnsttEngine = DnsttFmt.ENGINE_NOIZDNS
+            dnsttMaxPayload = -1
+        }
+        assertEquals(DnsttFmt.Problem.TRANSPORT_INVALID, DnsttFmt.normalize(badPayload))
+
+        val officialWithNoizTuning = profile("udp", "1.1.1.1:53").apply {
+            dnsttResolverMode = "roundrobin"
+        }
+        assertEquals(DnsttFmt.Problem.TRANSPORT_INVALID, DnsttFmt.normalize(officialWithNoizTuning))
+
+        assertNull(DnsttFmt.parse("dnstt://?transport=doh&resolver=http://dns.example/dns-query&domain=t.example.com&pubkey=$key"))
+    }
+
+    @Test
     fun coreIdentityIncludesEveryEngineInputButNotTheProfileName() {
         val first = com.v2ray.ang.core.DnsttCore.of(profile())
         val same = com.v2ray.ang.core.DnsttCore.of(profile().apply { remarks = "another name" })

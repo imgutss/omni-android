@@ -36,6 +36,35 @@ class DnsttCoreManagerTest {
     }
 
     @Test
+    fun noizProcessArgumentsPreserveSlipNetControls() {
+        val noiz = core.copy(
+            engine = DnsttFmt.ENGINE_NOIZDNS,
+            transport = DnsttFmt.Transport.DOT,
+            resolver = "1.1.1.1:853,8.8.8.8:853",
+            authoritative = true,
+            noiz = true,
+            stealth = true,
+            maxPayload = 80,
+            resolverMode = "roundrobin",
+            rrSpreadCount = 2,
+        )
+        val arguments = DnsttCoreManager.processArguments(
+            binary = File("/data/app/lib/libnoizdns.so"),
+            core = noiz,
+            protectAddress = "@omni-test",
+        )
+        assertTrue("-dot=1.1.1.1:853,8.8.8.8:853" in arguments)
+        assertTrue("-authoritative" in arguments)
+        assertTrue("-noiz" in arguments)
+        assertTrue("-stealth" in arguments)
+        assertTrue("-max-payload=80" in arguments)
+        assertTrue("-resolver-mode=roundrobin" in arguments)
+        assertTrue("-rr-spread=2" in arguments)
+        assertTrue("-fd-control-unix-socket=@omni-test" in arguments)
+        assertFalse(arguments.any { it.startsWith("-udp=") })
+    }
+
+    @Test
     fun proxyAndRootModesDoNotInventAProtectEndpoint() {
         val arguments = DnsttCoreManager.processArguments(File("/bin/libdnstt.so"), core, null)
         assertFalse(arguments.any { it.startsWith("-fd-control-unix-socket=") })

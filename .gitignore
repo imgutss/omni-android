@@ -76,3 +76,6 @@ V2rayNG/app/src/main/assets/psiphon_servers.stamp
 
 # Generated DNSTT Android executables
 /libs-dnstt/
+
+# Generated NoizDNS Android executables
+/libs-noizdns/

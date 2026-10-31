@@ -39,7 +39,7 @@ object DnsttDelayTester {
         guid: String? = null,
         block: suspend () -> T,
     ): T? = tunnels.withLock {
-        if (!DnsttCoreManager.isSupported(context)) return@withLock null
+        if (!DnsttCoreManager.isSupported(context, core.engine)) return@withLock null
         val live = withContext(Dispatchers.IO) { DnsttCoreManager.liveProcess(context) }
         if (live != null) {
             if (live.key != core.key || live.port != core.port) {

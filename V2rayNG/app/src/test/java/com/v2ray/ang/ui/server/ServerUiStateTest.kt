@@ -13,6 +13,7 @@ import com.v2ray.ang.enums.AetherTor
 import com.v2ray.ang.enums.AetherTransport
 import com.v2ray.ang.enums.EConfigType
 import com.v2ray.ang.fmt.AetherFmt
+import com.v2ray.ang.fmt.DnsttFmt
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -466,5 +467,38 @@ class ServerUiStateTest {
         val saved = state.toProfileItem(ProfileItem.create(EConfigType.AETHER), keepCommand = true)
         assertEquals(built, saved.aetherCommand)
         assertEquals(built, ServerUiState.from(saved).aetherCommand)
+    }
+
+    @Test
+    fun noizSettingsSurviveTheEditorRoundTrip() {
+        val original = ProfileItem.create(EConfigType.DNSTT).apply {
+            remarks = "Noiz"
+            dnsttEngine = DnsttFmt.ENGINE_NOIZDNS
+            dnsttTransport = "tcp"
+            dnsttResolver = "1.1.1.1:53,8.8.8.8:53"
+            dnsttDomain = "t.example.com"
+            dnsttPublicKey = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"
+            dnsttAuthoritative = true
+            dnsttNoiz = true
+            dnsttStealth = true
+            dnsttMaxPayload = 80
+            dnsttResolverMode = "roundrobin"
+            dnsttRrSpreadCount = 2
+            dnsttSocksUsername = "user"
+            dnsttSocksPassword = "pass"
+        }
+        val state = ServerUiState.from(original)
+        val restored = state.toProfileItem(original)
+        assertEquals(DnsttFmt.ENGINE_NOIZDNS, restored.dnsttEngine)
+        assertEquals("tcp", restored.dnsttTransport)
+        assertEquals(true, restored.dnsttAuthoritative)
+        assertEquals(true, restored.dnsttNoiz)
+        assertEquals(true, restored.dnsttStealth)
+        assertEquals(80, restored.dnsttMaxPayload)
+        assertEquals("roundrobin", restored.dnsttResolverMode)
+        assertEquals(2, restored.dnsttRrSpreadCount)
+        assertEquals("user", restored.dnsttSocksUsername)
+        assertEquals("pass", restored.dnsttSocksPassword)
+        assertNull(DnsttFmt.normalize(restored))
     }
 }

@@ -63,7 +63,7 @@ object CoreServiceManager {
     /** The official MasterDnsVPN process the running configuration depends on, if any. */
     private var currentMasterDns: MasterDnsCore? = null
 
-    /** The official DNSTT process the running configuration depends on, if any. */
+    /** The selected DNSTT/NoizDNS process the running configuration depends on, if any. */
     private var currentDnstt: DnsttCore? = null
     private var processFinder: XrayProcessFinder? = null
     private var browserDialer: IDialerService? = null
@@ -252,7 +252,7 @@ object CoreServiceManager {
         }
         val dnstt = result.dnsttCore
         if (dnstt != null) {
-            if (!DnsttCoreManager.isSupported(service)) {
+            if (!DnsttCoreManager.isSupported(service, dnstt.engine)) {
                 throw StartFailure(service.getString(R.string.dnstt_unsupported_abi))
             }
             if (AetherDependency.inboundListensOn(result.content, dnstt.port)) {

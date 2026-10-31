@@ -150,6 +150,32 @@ jobs:
         path: ${{ github.workspace }}/libs-dnstt
         key: dnstt-${{ runner.os }}-${{ env.GO_VERSION }}-${{ hashFiles('compile-dnstt.sh', 'third_party/dnstt/**') }}
 
+    - name: Restore cached NoizDNS client
+      id: cache-noizdns-restore
+      uses: actions/cache/restore@v6
+      with:
+        path: ${{ github.workspace }}/libs-noizdns
+        key: noizdns-${{ runner.os }}-${{ env.GO_VERSION }}-${{ hashFiles('compile-noizdns.sh', 'third_party/slipnet/noizdns/**', 'third_party/slipnet/dnstt/**') }}
+
+    - name: Build NoizDNS client
+      if: steps.cache-noizdns-restore.outputs.cache-hit != 'true'
+      run: bash compile-noizdns.sh
+
+    - name: Test NoizDNS upstream packages
+      run: |
+        cd third_party/slipnet/noizdns
+        GOTOOLCHAIN=local CGO_ENABLED=0 go test ./...
+
+    - name: Test NoizDNS real loopback tunnel
+      run: bash test-noizdns-loopback.sh
+
+    - name: Save NoizDNS client
+      if: steps.cache-noizdns-restore.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: ${{ github.workspace }}/libs-noizdns
+        key: noizdns-${{ runner.os }}-${{ env.GO_VERSION }}-${{ hashFiles('compile-noizdns.sh', 'third_party/slipnet/noizdns/**', 'third_party/slipnet/dnstt/**') }}
+
     # The Aether core runs Psiphon as a program of its own, the psiphon-tunnel-core console client,
     # which the app ships beside the core as libpsiphon-tunnel-core.so; see compile-psiphon.sh.
     - name: Restore cached Psiphon client
@@ -200,6 +226,7 @@ jobs:
         cp -r ${{ github.workspace }}/libs-pt/. ${{ github.workspace }}/V2rayNG/app/libs/
         cp -r ${{ github.workspace }}/libs-masterdns/. ${{ github.workspace }}/V2rayNG/app/libs/
         cp -r ${{ github.workspace }}/libs-dnstt/. ${{ github.workspace }}/V2rayNG/app/libs/
+        cp -r ${{ github.workspace }}/libs-noizdns/. ${{ github.workspace }}/V2rayNG/app/libs/
 
     # Psiphon's client starts with the newest server list the build could fetch, so a fresh install has
     # servers before it can reach the list on its own; see fetch-psiphon-servers.sh.
@@ -244,7 +271,7 @@ jobs:
         # The JVM unit tests are the only automated check of the Kotlin logic; a failure stops the
         # build before anything is assembled or signed.
         ./gradlew :app:testPlaystoreDebugUnitTest
-        ./gradlew assemblePlaystoreRelease -PpattngVersion="${{ inputs.release_tag || '0.7.0' }}" -Pandroid.injected.signing.store.file=${{ steps.android_keystore.outputs.filePath }} -Pandroid.injected.signing.store.password=${{ secrets.OMNI_KEYSTORE_PASSWORD }} -Pandroid.injected.signing.key.alias=${{ secrets.OMNI_KEY_ALIAS }} -Pandroid.injected.signing.key.password=${{ secrets.OMNI_KEY_PASSWORD }}
+        ./gradlew assemblePlaystoreRelease -PpattngVersion="${{ inputs.release_tag || '0.8.0' }}" -Pandroid.injected.signing.store.file=${{ steps.android_keystore.outputs.filePath }} -Pandroid.injected.signing.store.password=${{ secrets.OMNI_KEYSTORE_PASSWORD }} -Pandroid.injected.signing.key.alias=${{ secrets.OMNI_KEY_ALIAS }} -Pandroid.injected.signing.key.password=${{ secrets.OMNI_KEY_PASSWORD }}
     
     - name: Check the native libraries in the APKs
       run: |
@@ -272,6 +299,10 @@ jobs:
             fi
             if ! echo "$entries" | grep -qx "lib/$abi/libdnstt.so"; then
               echo "::error::$(basename "$apk") lacks lib/$abi/libdnstt.so"
+              status=1
+            fi
+            if ! echo "$entries" | grep -qx "lib/$abi/libnoizdns.so"; then
+              echo "::error::$(basename "$apk") lacks lib/$abi/libnoizdns.so"
               status=1
             fi
           done

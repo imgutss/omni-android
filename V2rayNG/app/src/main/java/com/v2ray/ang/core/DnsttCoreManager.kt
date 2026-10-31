@@ -23,11 +23,14 @@ import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
-/** Owns the official dnstt-client process used by the selected standalone profile. */
+/** Owns the official DNSTT or SlipNet-compatible NoizDNS process for the selected profile. */
 object DnsttCoreManager {
-    private const val BINARY_NAME = "libdnstt.so"
+    private const val OFFICIAL_BINARY_NAME = "libdnstt.so"
+    private const val NOIZDNS_BINARY_NAME = "libnoizdns.so"
     private const val SESSION_ENV = "OMNI_DNSTT_SESSION"
     private const val KEY_ENV = "OMNI_DNSTT_KEY"
+    private const val SOCKS_USER_ENV = "OMNI_DNSTT_SOCKS_USER"
+    private const val SOCKS_PASSWORD_ENV = "OMNI_DNSTT_SOCKS_PASSWORD"
     private const val READY_POLL_MS = 250L
     private const val EXIT_WAIT_MS = 2_000L
     private const val EXIT_POLL_MS = 50L
@@ -47,12 +50,15 @@ object DnsttCoreManager {
     internal data class LiveProcess(val pid: Int, val port: Int, val key: String?)
 
     internal fun liveProcess(context: Context): LiveProcess? {
-        val expected = binary(context).absolutePath
+        val expected = listOf(
+            binary(context, DnsttFmt.ENGINE_OFFICIAL).absolutePath,
+            binary(context, DnsttFmt.ENGINE_NOIZDNS).absolutePath,
+        )
         File("/proc").listFiles()?.forEach { entry ->
             val pid = entry.name.toIntOrNull() ?: return@forEach
             if (pid == android.os.Process.myPid()) return@forEach
             val argv = readProcWords(File(entry, "cmdline")) ?: return@forEach
-            if (argv.firstOrNull() != expected) return@forEach
+            if (argv.firstOrNull() !in expected) return@forEach
             val environment = readProcWords(File(entry, "environ")).orEmpty()
             if ("$SESSION_ENV=1" !in environment) return@forEach
             val port = argv.lastOrNull()?.substringAfterLast(':')?.toIntOrNull() ?: return@forEach
@@ -80,9 +86,13 @@ object DnsttCoreManager {
         }
     }
 
-    private fun binary(context: Context): File = File(context.applicationInfo.nativeLibraryDir, BINARY_NAME)
+    private fun binary(context: Context, engine: String = DnsttFmt.ENGINE_OFFICIAL): File {
+        val name = if (engine == DnsttFmt.ENGINE_NOIZDNS) NOIZDNS_BINARY_NAME else OFFICIAL_BINARY_NAME
+        return File(context.applicationInfo.nativeLibraryDir, name)
+    }
 
-    fun isSupported(context: Context): Boolean = binary(context).canExecute()
+    fun isSupported(context: Context, engine: String = DnsttFmt.ENGINE_OFFICIAL): Boolean =
+        binary(context, engine).canExecute()
 
     internal sealed interface PortCheck {
         data object Free : PortCheck
@@ -155,6 +165,10 @@ object DnsttCoreManager {
                     put(KEY_ENV, target.core.key)
                     put("HOME", directory.absolutePath)
                     put("TMPDIR", target.context.cacheDir.absolutePath)
+                    if (target.core.socksUsername.isNotEmpty()) {
+                        put(SOCKS_USER_ENV, target.core.socksUsername)
+                        put(SOCKS_PASSWORD_ENV, target.core.socksPassword)
+                    }
                 }
             }.start()
             runCatching { process.outputStream.close() }
@@ -168,7 +182,7 @@ object DnsttCoreManager {
                 }
                 finish(target, notifyExit = true)
             }
-            LogUtil.i(AppConfig.TAG, "DNSTT: official core started on ${AppConfig.LOOPBACK}:${target.core.port}")
+            LogUtil.i(AppConfig.TAG, "DNSTT: ${target.core.engine} core started on ${AppConfig.LOOPBACK}:${target.core.port}")
             if (session !== target) finish(target, notifyExit = false)
         } catch (e: Exception) {
             LogUtil.e(AppConfig.TAG, "DNSTT: core start failed", e)
@@ -177,16 +191,33 @@ object DnsttCoreManager {
     }
 
     internal fun processArguments(target: Session): List<String> = processArguments(
-        binary = binary(target.context),
+        binary = binary(target.context, target.core.engine),
         core = target.core,
         protectAddress = target.protectServer?.configAddress,
     )
 
     internal fun processArguments(binary: File, core: DnsttCore, protectAddress: String?): List<String> = buildList {
         add(binary.absolutePath)
-        add("-${core.transport.type}=${core.resolver}")
-        add("-pubkey=${core.publicKey}")
-        if (core.utls.isNotBlank()) add("-utls=${core.utls}")
+        if (core.engine == DnsttFmt.ENGINE_NOIZDNS) {
+            when (core.transport) {
+                DnsttFmt.Transport.DOH -> add("-doh=${core.resolver}")
+                DnsttFmt.Transport.DOT -> add("-dot=${core.resolver}")
+                DnsttFmt.Transport.UDP -> add("-udp=${core.resolver}")
+                DnsttFmt.Transport.TCP -> add("-tcp=${core.resolver}")
+            }
+            add("-pubkey=${core.publicKey}")
+            if (core.utls.isNotBlank()) add("-utls=${core.utls}")
+            if (core.authoritative) add("-authoritative")
+            if (core.noiz) add("-noiz")
+            if (core.stealth) add("-stealth")
+            if (core.maxPayload > 0) add("-max-payload=${core.maxPayload}")
+            add("-resolver-mode=${core.resolverMode}")
+            add("-rr-spread=${core.rrSpreadCount}")
+        } else {
+            add("-${core.transport.type}=${core.resolver}")
+            add("-pubkey=${core.publicKey}")
+            if (core.utls.isNotBlank()) add("-utls=${core.utls}")
+        }
         if (protectAddress != null) add("-fd-control-unix-socket=$protectAddress")
         add(core.domain)
         add("${AppConfig.LOOPBACK}:${core.port}")
@@ -291,7 +322,10 @@ object DnsttCoreManager {
     }
 
     private fun reapStale(context: Context) {
-        val expected = binary(context).absolutePath
+        val expected = listOf(
+            binary(context, DnsttFmt.ENGINE_OFFICIAL).absolutePath,
+            binary(context, DnsttFmt.ENGINE_NOIZDNS).absolutePath,
+        )
         val stale = mutableListOf<Int>()
         File("/proc").listFiles()?.forEach { entry ->
             val pid = entry.name.toIntOrNull() ?: return@forEach
@@ -300,7 +334,7 @@ object DnsttCoreManager {
                 String(File(entry, "cmdline").readBytes(), Charsets.UTF_8).substringBefore('\u0000')
             }.getOrNull() ?: return@forEach
             val environment = readProcWords(File(entry, "environ")).orEmpty()
-            if (command == expected && "$SESSION_ENV=1" in environment) stale += pid
+            if (command in expected && "$SESSION_ENV=1" in environment) stale += pid
         }
         stale.forEach { pid -> runCatching { android.os.Process.sendSignal(pid, OsConstants.SIGTERM) } }
         if (stale.isEmpty()) return

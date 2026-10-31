@@ -124,6 +124,15 @@ class ServerUiState(
     dnsttDomain: String = "",
     dnsttPublicKey: String = "",
     dnsttUtls: String = DnsttFmt.DEFAULT_UTLS,
+    dnsttEngine: String = DnsttFmt.ENGINE_OFFICIAL,
+    dnsttAuthoritative: Boolean = false,
+    dnsttNoiz: Boolean = false,
+    dnsttStealth: Boolean = false,
+    dnsttMaxPayload: String = "0",
+    dnsttResolverMode: String = "fanout",
+    dnsttRrSpreadCount: String = "3",
+    dnsttSocksUsername: String = "",
+    dnsttSocksPassword: String = "",
 ) {
     var configType by mutableStateOf(configType)
     var remarks by mutableStateOf(remarks)
@@ -227,6 +236,15 @@ class ServerUiState(
     var dnsttDomain by mutableStateOf(dnsttDomain)
     var dnsttPublicKey by mutableStateOf(dnsttPublicKey)
     var dnsttUtls by mutableStateOf(dnsttUtls)
+    var dnsttEngine by mutableStateOf(dnsttEngine)
+    var dnsttAuthoritative by mutableStateOf(dnsttAuthoritative)
+    var dnsttNoiz by mutableStateOf(dnsttNoiz)
+    var dnsttStealth by mutableStateOf(dnsttStealth)
+    var dnsttMaxPayload by mutableStateOf(dnsttMaxPayload)
+    var dnsttResolverMode by mutableStateOf(dnsttResolverMode)
+    var dnsttRrSpreadCount by mutableStateOf(dnsttRrSpreadCount)
+    var dnsttSocksUsername by mutableStateOf(dnsttSocksUsername)
+    var dnsttSocksPassword by mutableStateOf(dnsttSocksPassword)
 
     /**
      * Whether an Aether setting the editor keeps folded away holds a value of its own, so that the
@@ -387,6 +405,15 @@ class ServerUiState(
             dnsttDomain = if (isDnstt) dnsttDomain.trim().lowercase() else null,
             dnsttPublicKey = if (isDnstt) dnsttPublicKey.trim() else null,
             dnsttUtls = if (isDnstt) dnsttUtls.trim() else null,
+            dnsttEngine = if (isDnstt) dnsttEngine else null,
+            dnsttAuthoritative = if (isDnstt) dnsttAuthoritative else null,
+            dnsttNoiz = if (isDnstt) dnsttNoiz else null,
+            dnsttStealth = if (isDnstt) dnsttStealth else null,
+            dnsttMaxPayload = if (isDnstt) dnsttMaxPayload.toIntOrNull() ?: -1 else null,
+            dnsttResolverMode = if (isDnstt) dnsttResolverMode else null,
+            dnsttRrSpreadCount = if (isDnstt) dnsttRrSpreadCount.toIntOrNull() ?: -1 else null,
+            dnsttSocksUsername = if (isDnstt) dnsttSocksUsername.nullIfBlank() else null,
+            dnsttSocksPassword = if (isDnstt) dnsttSocksPassword.nullIfBlank() else null,
         )
         // A command that says what the settings say is no command of its own: the profile follows the settings.
         val command = aetherCommand.trim()
@@ -499,6 +526,15 @@ class ServerUiState(
                 dnsttDomain = initialConfig.dnsttDomain ?: "",
                 dnsttPublicKey = initialConfig.dnsttPublicKey ?: "",
                 dnsttUtls = initialConfig.dnsttUtls ?: DnsttFmt.DEFAULT_UTLS,
+                dnsttEngine = initialConfig.dnsttEngine ?: DnsttFmt.ENGINE_OFFICIAL,
+                dnsttAuthoritative = initialConfig.dnsttAuthoritative == true,
+                dnsttNoiz = initialConfig.dnsttNoiz == true,
+                dnsttStealth = initialConfig.dnsttStealth == true,
+                dnsttMaxPayload = (initialConfig.dnsttMaxPayload ?: 0).toString(),
+                dnsttResolverMode = initialConfig.dnsttResolverMode ?: "fanout",
+                dnsttRrSpreadCount = (initialConfig.dnsttRrSpreadCount ?: 3).toString(),
+                dnsttSocksUsername = initialConfig.dnsttSocksUsername ?: "",
+                dnsttSocksPassword = initialConfig.dnsttSocksPassword ?: "",
             )
 
         fun from(

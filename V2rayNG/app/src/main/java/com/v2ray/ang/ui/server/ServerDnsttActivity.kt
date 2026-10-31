@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.v2ray.ang.R
 import com.v2ray.ang.dto.entities.ProfileItem
@@ -15,6 +16,7 @@ import com.v2ray.ang.extension.toast
 import com.v2ray.ang.fmt.DnsttFmt
 import com.v2ray.ang.ui.compose.FormDropdownField
 import com.v2ray.ang.ui.compose.FormTextField
+import com.v2ray.ang.ui.compose.SettingsSwitchItem
 
 /** Editor for the official dnstt-client, including the remote SOCKS5 requirement. */
 class ServerDnsttActivity : BaseServerActivity() {
@@ -37,9 +39,27 @@ class ServerDnsttActivity : BaseServerActivity() {
                 isError = uiState.isRemarksError,
             )
             FormDropdownField(
+                label = stringResource(R.string.dnstt_lab_engine),
+                value = uiState.dnsttEngine,
+                options = listOf(DnsttFmt.ENGINE_OFFICIAL, DnsttFmt.ENGINE_NOIZDNS),
+                onValueChange = { selected ->
+                    uiState.dnsttEngine = selected
+                    if (selected == DnsttFmt.ENGINE_OFFICIAL) {
+                        if (uiState.dnsttTransport == "tcp") uiState.dnsttTransport = "udp"
+                        uiState.dnsttNoiz = false
+                        uiState.dnsttStealth = false
+                    }
+                },
+                supportingText = stringResource(R.string.dnstt_engine_support),
+            )
+            FormDropdownField(
                 label = stringResource(R.string.dnstt_lab_transport),
                 value = uiState.dnsttTransport,
-                options = listOf("doh", "dot", "udp"),
+                options = if (uiState.dnsttEngine == DnsttFmt.ENGINE_NOIZDNS) {
+                    listOf("doh", "dot", "udp", "tcp")
+                } else {
+                    listOf("doh", "dot", "udp")
+                },
                 onValueChange = { uiState.dnsttTransport = it },
                 supportingText = stringResource(R.string.dnstt_transport_support),
             )
@@ -86,8 +106,68 @@ class ServerDnsttActivity : BaseServerActivity() {
                 supportingText = stringResource(R.string.dnstt_utls_support),
                 isError = uiState.isDnsttUtlsError,
             )
+            if (uiState.dnsttEngine == DnsttFmt.ENGINE_NOIZDNS) {
+                SettingsSwitchItem(
+                    title = stringResource(R.string.dnstt_lab_noiz),
+                    summary = stringResource(R.string.dnstt_noiz_support),
+                    checked = uiState.dnsttNoiz,
+                    onCheckedChange = {
+                        uiState.dnsttNoiz = it
+                        if (!it) uiState.dnsttStealth = false
+                    },
+                )
+                SettingsSwitchItem(
+                    title = stringResource(R.string.dnstt_lab_stealth),
+                    summary = stringResource(R.string.dnstt_stealth_support),
+                    checked = uiState.dnsttStealth,
+                    onCheckedChange = { uiState.dnsttStealth = it },
+                    enabled = uiState.dnsttNoiz,
+                )
+                SettingsSwitchItem(
+                    title = stringResource(R.string.dnstt_lab_authoritative),
+                    summary = stringResource(R.string.dnstt_authoritative_support),
+                    checked = uiState.dnsttAuthoritative,
+                    onCheckedChange = { uiState.dnsttAuthoritative = it },
+                )
+                FormDropdownField(
+                    label = stringResource(R.string.dnstt_lab_resolver_mode),
+                    value = uiState.dnsttResolverMode,
+                    options = listOf("fanout", "roundrobin"),
+                    onValueChange = { uiState.dnsttResolverMode = it },
+                )
+                FormTextField(
+                    label = stringResource(R.string.dnstt_lab_rr_spread),
+                    value = uiState.dnsttRrSpreadCount,
+                    onValueChange = { uiState.dnsttRrSpreadCount = it },
+                    keyboardType = KeyboardType.Number,
+                    supportingText = stringResource(R.string.dnstt_rr_spread_support),
+                )
+                FormTextField(
+                    label = stringResource(R.string.dnstt_lab_max_payload),
+                    value = uiState.dnsttMaxPayload,
+                    onValueChange = { uiState.dnsttMaxPayload = it },
+                    keyboardType = KeyboardType.Number,
+                    supportingText = stringResource(R.string.dnstt_max_payload_support),
+                )
+                FormTextField(
+                    label = stringResource(R.string.dnstt_lab_socks_username),
+                    value = uiState.dnsttSocksUsername,
+                    onValueChange = { uiState.dnsttSocksUsername = it },
+                )
+                FormTextField(
+                    label = stringResource(R.string.dnstt_lab_socks_password),
+                    value = uiState.dnsttSocksPassword,
+                    onValueChange = { uiState.dnsttSocksPassword = it },
+                )
+            }
             Text(
-                text = stringResource(R.string.dnstt_engine_notice),
+                text = stringResource(
+                    if (uiState.dnsttEngine == DnsttFmt.ENGINE_NOIZDNS) {
+                        R.string.dnstt_noiz_engine_notice
+                    } else {
+                        R.string.dnstt_engine_notice
+                    }
+                ),
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             )

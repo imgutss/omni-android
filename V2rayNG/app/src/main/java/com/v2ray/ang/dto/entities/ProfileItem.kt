@@ -184,6 +184,31 @@ data class ProfileItem(
 
     /** Optional official uTLS distribution string. */
     var dnsttUtls: String? = null,
+
+    /** Engine selected for this DNSTT-compatible profile: official or NoizDNS. */
+    var dnsttEngine: String? = null,
+
+    /** SlipNet/NoizDNS authoritative-resolver tuning, not a server-side flag. */
+    var dnsttAuthoritative: Boolean? = null,
+
+    /** Enable NoizDNS wire/cover-traffic mode instead of plain DNSTT compatibility mode. */
+    var dnsttNoiz: Boolean? = null,
+
+    /** NoizDNS variable-label and aggressive cover-traffic mode. */
+    var dnsttStealth: Boolean? = null,
+
+    /** Optional NoizDNS per-query payload cap; zero means the engine default. */
+    var dnsttMaxPayload: Int? = null,
+
+    /** Multi-resolver distribution: fanout or roundrobin. */
+    var dnsttResolverMode: String? = null,
+
+    /** Number of resolvers used for each round-robin query. */
+    var dnsttRrSpreadCount: Int? = null,
+
+    /** Optional credentials for the remote SOCKS5 service behind the tunnel. */
+    var dnsttSocksUsername: String? = null,
+    var dnsttSocksPassword: String? = null,
 ) {
 
     companion object {

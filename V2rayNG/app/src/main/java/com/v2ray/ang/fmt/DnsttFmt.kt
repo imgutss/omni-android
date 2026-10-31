@@ -15,10 +15,12 @@ import java.nio.charset.StandardCharsets
  */
 object DnsttFmt : FmtBase() {
     const val DEFAULT_UTLS = "4*random,3*Firefox_120,1*Firefox_105,3*Chrome_120,1*Chrome_102,1*iOS_14,1*iOS_13"
+    const val ENGINE_OFFICIAL = "official"
+    const val ENGINE_NOIZDNS = "noizdns"
     private const val DEFAULT_REMARKS = "DNSTT"
 
     enum class Transport(val type: String, val defaultPort: Int) {
-        DOH("doh", 443), DOT("dot", 853), UDP("udp", 53);
+        DOH("doh", 443), DOT("dot", 853), UDP("udp", 53), TCP("tcp", 53);
 
         companion object {
             fun from(value: String?): Transport? = entries.firstOrNull { it.type.equals(value?.trim(), true) }
@@ -49,14 +51,28 @@ object DnsttFmt : FmtBase() {
         val remarks = uri.rawFragment
             ?.let { runCatching { URLDecoder.decode(it, StandardCharsets.UTF_8.name()) }.getOrNull() }
             ?.trim().takeUnless { it.isNullOrEmpty() } ?: DEFAULT_REMARKS
-        return fromValues(
-            remarks = remarks,
-            transport = transport.type,
-            resolver = resolver,
-            domain = domain,
-            publicKey = publicKey,
-            utls = query["utls"] ?: DEFAULT_UTLS,
-        )
+        // Build the complete profile before validating it. In particular, the
+        // NoizDNS engine and its multi-resolver/authoritative options must be
+        // present during the first normalization; validating a temporary
+        // official-DNSTT profile would reject valid Omni URIs prematurely.
+        val profile = ProfileItem.create(EConfigType.DNSTT).also {
+            it.remarks = remarks
+            it.dnsttTransport = transport.type
+            it.dnsttResolver = resolver
+            it.dnsttDomain = domain
+            it.dnsttPublicKey = publicKey
+            it.dnsttUtls = query["utls"] ?: DEFAULT_UTLS
+            it.dnsttEngine = query["engine"]
+            it.dnsttAuthoritative = query["authoritative"]?.let { value -> value == "1" || value.equals("true", true) }
+            it.dnsttNoiz = query["noiz"]?.let { value -> value == "1" || value.equals("true", true) }
+            it.dnsttStealth = query["stealth"]?.let { value -> value == "1" || value.equals("true", true) }
+            it.dnsttMaxPayload = query["maxPayload"]?.toIntOrNull()
+            it.dnsttResolverMode = query["resolverMode"]
+            it.dnsttRrSpreadCount = query["rrSpread"]?.toIntOrNull()
+            it.dnsttSocksUsername = query["socksUsername"]
+            it.dnsttSocksPassword = query["socksPassword"]
+        }
+        return profile.takeIf { normalize(it) == null }
     }
 
     /** Only the explicit dnstt:// form is accepted here; raw CLI text is not guessed as a profile. */
@@ -72,6 +88,15 @@ object DnsttFmt : FmtBase() {
             "pubkey" to normalized.dnsttPublicKey.orEmpty(),
             "utls" to normalized.dnsttUtls.orEmpty(),
         )
+        if (normalized.dnsttEngine != ENGINE_OFFICIAL) query["engine"] = normalized.dnsttEngine.orEmpty()
+        if (normalized.dnsttAuthoritative == true) query["authoritative"] = "1"
+        if (normalized.dnsttNoiz == true) query["noiz"] = "1"
+        if (normalized.dnsttStealth == true) query["stealth"] = "1"
+        normalized.dnsttMaxPayload?.takeIf { it > 0 }?.let { query["maxPayload"] = it.toString() }
+        normalized.dnsttResolverMode?.takeIf { it.isNotBlank() }?.let { query["resolverMode"] = it }
+        normalized.dnsttRrSpreadCount?.takeIf { it > 0 }?.let { query["rrSpread"] = it.toString() }
+        normalized.dnsttSocksUsername?.takeIf { it.isNotEmpty() }?.let { query["socksUsername"] = it }
+        normalized.dnsttSocksPassword?.takeIf { it.isNotEmpty() }?.let { query["socksPassword"] = it }
         val encoded = query.entries.joinToString("&") { (key, value) ->
             "${encode(key)}=${encode(value)}"
         }
@@ -105,10 +130,29 @@ object DnsttFmt : FmtBase() {
             } else {
                 Problem.DOMAIN_INVALID
             }
+        val engine = config.dnsttEngine?.trim()?.lowercase()?.ifEmpty { ENGINE_OFFICIAL } ?: ENGINE_OFFICIAL
+        if (engine != ENGINE_OFFICIAL && engine != ENGINE_NOIZDNS) return Problem.TRANSPORT_INVALID
         val transport = Transport.from(config.dnsttTransport) ?: return Problem.TRANSPORT_INVALID
+        val noiz = config.dnsttNoiz == true
+        val stealth = config.dnsttStealth == true
+        val maxPayload = config.dnsttMaxPayload ?: 0
+        val resolverMode = config.dnsttResolverMode?.trim()?.lowercase()
+        val rrSpread = config.dnsttRrSpreadCount ?: 3
+        if (stealth && !noiz) return Problem.TRANSPORT_INVALID
+        if (maxPayload !in 0..4096 || rrSpread !in 1..5) return Problem.TRANSPORT_INVALID
+        if (!resolverMode.isNullOrBlank() && resolverMode !in setOf("fanout", "roundrobin")) {
+            return Problem.TRANSPORT_INVALID
+        }
+        // The official upstream client has no TCP transport or SlipNet tuning knobs.
+        if (engine == ENGINE_OFFICIAL && (transport == Transport.TCP ||
+                config.dnsttAuthoritative == true || noiz || stealth || maxPayload != 0 ||
+                (!resolverMode.isNullOrBlank() && resolverMode != "fanout") || rrSpread != 3 ||
+                !config.dnsttSocksUsername.isNullOrEmpty() || !config.dnsttSocksPassword.isNullOrEmpty())
+        ) return Problem.TRANSPORT_INVALID
         val rawResolver = config.dnsttResolver?.trim().orEmpty()
         if (rawResolver.isEmpty()) return Problem.RESOLVER_MISSING
-        val resolver = normalizeResolver(transport, rawResolver) ?: return Problem.RESOLVER_INVALID
+        val resolver = normalizeResolver(transport, rawResolver, allowMultiple = engine == ENGINE_NOIZDNS)
+            ?: return Problem.RESOLVER_INVALID
         val key = config.dnsttPublicKey?.trim().orEmpty()
         if (key.isEmpty()) return Problem.PUBLIC_KEY_MISSING
         if (!key.matches(Regex("(?i)[0-9a-f]{64}"))) return Problem.PUBLIC_KEY_INVALID
@@ -122,6 +166,13 @@ object DnsttFmt : FmtBase() {
         config.dnsttResolver = resolver
         config.dnsttPublicKey = key.lowercase()
         config.dnsttUtls = utls
+        config.dnsttEngine = engine
+        config.dnsttAuthoritative = config.dnsttAuthoritative == true
+        config.dnsttNoiz = noiz
+        config.dnsttStealth = stealth
+        config.dnsttMaxPayload = maxPayload
+        config.dnsttResolverMode = resolverMode?.takeIf { it.isNotBlank() } ?: "fanout"
+        config.dnsttRrSpreadCount = rrSpread
         config.server = domain
         config.serverPort = null
         config.remarks = config.remarks.trim().ifEmpty { DEFAULT_REMARKS }
@@ -140,16 +191,20 @@ object DnsttFmt : FmtBase() {
         }
     }
 
-    private fun normalizeResolver(transport: Transport, value: String): String? {
+    private fun normalizeResolver(transport: Transport, value: String, allowMultiple: Boolean = false): String? {
         if (value.any { it.isWhitespace() || it == '\u0000' }) return null
         if (transport == Transport.DOH) {
+            if (value.contains(',')) return null
             val uri = runCatching { URI(value) }.getOrNull() ?: return null
-            if (!uri.scheme.equals("https", true) && !uri.scheme.equals("http", true)) return null
+            if (!uri.scheme.equals("https", true)) return null
             if (uri.host.isNullOrBlank() || uri.userInfo != null || uri.fragment != null) return null
             if (uri.port != -1 && uri.port !in 1..65535) return null
             return value
         }
-        return normalizeEndpoint(value, transport.defaultPort)
+        val values = if (allowMultiple) value.split(',') else listOf(value)
+        if (values.isEmpty() || values.any { it.isBlank() }) return null
+        val normalized = values.map { normalizeEndpoint(it, transport.defaultPort) ?: return null }
+        return normalized.joinToString(",")
     }
 
     /** Accepts host:port, bracketed IPv6, and bare host/IP with the transport's standard port. */
