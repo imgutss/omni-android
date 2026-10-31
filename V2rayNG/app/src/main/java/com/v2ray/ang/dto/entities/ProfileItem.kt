@@ -169,6 +169,21 @@ data class ProfileItem(
 
     /** Official client_resolvers.txt content; blank means the documented sample default. */
     var masterDnsResolvers: String? = null,
+
+    /** DNSTT transport: doh, dot, or udp. */
+    var dnsttTransport: String? = null,
+
+    /** DoH URL or DoT/UDP resolver endpoint used by the official dnstt-client. */
+    var dnsttResolver: String? = null,
+
+    /** Root DNS zone delegated to the DNSTT server. */
+    var dnsttDomain: String? = null,
+
+    /** Hex-encoded Noise public key of the DNSTT server; this is public, not a private key. */
+    var dnsttPublicKey: String? = null,
+
+    /** Optional official uTLS distribution string. */
+    var dnsttUtls: String? = null,
 ) {
 
     companion object {
@@ -216,7 +231,7 @@ data class ProfileItem(
         if (server.isNullOrEmpty() && configType == EConfigType.CUSTOM) {
             return "${AppConfig.LOOPBACK}:${AppConfig.PORT_SOCKS}"
         }
-        if (configType == EConfigType.MASTERDNS) return server.orEmpty()
+        if (configType == EConfigType.MASTERDNS || configType == EConfigType.DNSTT) return server.orEmpty()
         return "${Utils.getIpv6Address(server)}:$serverPort"
     }
 

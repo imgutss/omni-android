@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.v2ray.ang.core.CoreConfigManager
+import com.v2ray.ang.core.DnsttDelayTester
 import com.v2ray.ang.core.MasterDnsDelayTester
 import com.v2ray.ang.dto.RealPingEvent
 import com.v2ray.ang.omni.lab.OmniTransferLab
@@ -333,25 +334,31 @@ class OmniScannerViewModel(application: Application) : AndroidViewModel(applicat
                 }
                 val lab = OmniTransferLab(OmniNativeCoreRuntime(getApplication()))
                 val masterDns = config.masterDnsCore
-                val connection = if (masterDns == null) {
-                    lab.connectivity(config.content, downloadUrl)
-                } else {
-                    MasterDnsDelayTester.withCore(
+                val dnstt = config.dnsttCore
+                val connection = when {
+                    masterDns != null -> MasterDnsDelayTester.withCore(
                         getApplication(), masterDns, MasterDnsDelayTester.STARTUP_BUDGET_MS, guid,
                     ) { lab.connectivity(config.content, downloadUrl) }
+                    dnstt != null -> DnsttDelayTester.withCore(
+                        getApplication(), dnstt, DnsttDelayTester.STARTUP_BUDGET_MS, guid,
+                    ) { lab.connectivity(config.content, downloadUrl) }
+                    else -> lab.connectivity(config.content, downloadUrl)
                 }
                 mutableState.update { it.copy(connectivity = connection) }
                 if (connection == null || !connection.success) {
                     mutableState.update { it.copy(message = OmniScannerMessage.SPEED_FAILED) }
                     return@launch
                 }
-                val transfer = if (masterDns == null) {
-                    lab.measure(config.content, downloadUrl, uploadUrl)
-                } else {
-                    MasterDnsDelayTester.withCore(
+                val transfer = when {
+                    masterDns != null -> MasterDnsDelayTester.withCore(
                         getApplication(), masterDns, MasterDnsDelayTester.STARTUP_BUDGET_MS, guid,
                     ) { lab.measure(config.content, downloadUrl, uploadUrl) }
                         ?: OmniTransferResult(false, error = "MasterDNS core did not start")
+                    dnstt != null -> DnsttDelayTester.withCore(
+                        getApplication(), dnstt, DnsttDelayTester.STARTUP_BUDGET_MS, guid,
+                    ) { lab.measure(config.content, downloadUrl, uploadUrl) }
+                        ?: OmniTransferResult(false, error = "DNSTT core did not start")
+                    else -> lab.measure(config.content, downloadUrl, uploadUrl)
                 }
                 mutableState.update { it.copy(transfer = transfer, message = if (transfer.success) null else OmniScannerMessage.SPEED_FAILED) }
             } catch (cancelled: kotlinx.coroutines.CancellationException) {

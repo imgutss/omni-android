@@ -49,6 +49,20 @@ class CoreOutboundBuilderTest {
     }
 
     @Test
+    fun dnsttBuildsALoopbackSocksOutboundForTheOfficialCore() {
+        val profile = com.v2ray.ang.fmt.DnsttFmt.fromValues(
+            "dns", "doh", "https://cloudflare-dns.com/dns-query", "t.example.com",
+            "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+        )!!
+
+        val outbound = CoreOutboundBuilder.toOutboundDnstt(profile)
+
+        assertEquals("socks", outbound?.protocol)
+        assertEquals("127.0.0.1", outbound?.settings?.address)
+        assertEquals(18001, outbound?.settings?.port)
+    }
+
+    @Test
     fun test_applyDialMode_setsSockoptDialMode() {
         val outbound = OutboundBean(protocol = "vless", streamSettings = OutboundBean.StreamSettingsBean())
 

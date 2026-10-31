@@ -15,6 +15,7 @@ import com.v2ray.ang.enums.BalancerStrategyType
 import com.v2ray.ang.enums.CoreResolvedType
 import com.v2ray.ang.enums.EConfigType
 import com.v2ray.ang.extension.isNotNullEmpty
+import com.v2ray.ang.fmt.DnsttFmt
 import com.v2ray.ang.fmt.MasterDnsFmt
 import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.handler.SettingsManager
@@ -50,6 +51,8 @@ object CoreConfigManager {
             aetherFailure(context, guid, dependency)?.let { return it }
             val masterDnsDependency = MasterDnsDependency.of(configContext.resolvedOutbounds)
             masterDnsFailure(context, guid, masterDnsDependency)?.let { return it }
+            val dnsttDependency = DnsttDependency.of(configContext.resolvedOutbounds)
+            dnsttFailure(context, guid, dnsttDependency)?.let { return it }
             if (takesExitNodeName(dependency, configContext.resolvedOutbounds)) return exitNodeNameFailure(context, guid)
             val v2rayConfig = buildUnifiedConfig(configContext)
             if (lacksMainOutbound(v2rayConfig)) return mainOutboundFailure(context, guid)
@@ -69,7 +72,8 @@ object CoreConfigManager {
                 withNodeContent(routed, node)
             }
             val masterDnsCore = (masterDnsDependency as? MasterDnsDependency.Single)?.core
-            return toConfigResult(context, configContext, v2rayConfig, core, masterDnsCore)
+            val dnsttCore = (dnsttDependency as? DnsttDependency.Single)?.core
+            return toConfigResult(context, configContext, v2rayConfig, core, masterDnsCore, dnsttCore)
         } catch (e: Exception) {
             LogUtil.e(AppConfig.TAG, "Failed to get V2ray config", e)
             return ConfigResult(
@@ -105,6 +109,8 @@ object CoreConfigManager {
             aetherFailure(context, guid, dependency)?.let { return it }
             val masterDnsDependency = MasterDnsDependency.of(configContext.resolvedOutbounds.take(1))
             masterDnsFailure(context, guid, masterDnsDependency)?.let { return it }
+            val dnsttDependency = DnsttDependency.of(configContext.resolvedOutbounds.take(1))
+            dnsttFailure(context, guid, dnsttDependency)?.let { return it }
             speedtestCoresRefusal(configContext.resolvedOutbounds)?.let { refusal -> aetherFailure(context, guid, refusal)?.let { return it } }
             if (takesExitNodeName(dependency, configContext.resolvedOutbounds)) return exitNodeNameFailure(context, guid)
             val v2rayConfig = buildUnifiedConfig(configContext)
@@ -119,7 +125,8 @@ object CoreConfigManager {
             if (core != null && lacksChainHop(core, v2rayConfig.outbounds)) return chainHopFailure(context, guid)
             if (core != null) exitNodeProblem(core, v2rayConfig.outbounds)?.let { return exitNodeFailure(context, guid, core, it) }
             val masterDnsCore = (masterDnsDependency as? MasterDnsDependency.Single)?.core
-            return toConfigResult(context, configContext, v2rayConfig, core, masterDnsCore)
+            val dnsttCore = (dnsttDependency as? DnsttDependency.Single)?.core
+            return toConfigResult(context, configContext, v2rayConfig, core, masterDnsCore, dnsttCore)
         } catch (e: Exception) {
             LogUtil.e(AppConfig.TAG, "Failed to get V2ray config for speedtest", e)
             return ConfigResult(
@@ -615,6 +622,7 @@ object CoreConfigManager {
         v2rayConfig: V2rayConfig,
         core: AetherCore?,
         masterDnsCore: MasterDnsCore? = null,
+        dnsttCore: DnsttCore? = null,
     ): ConfigResult {
         v2rayConfig.aetherCommand = core?.command
         // PattNG: the ECH outbounds of the profiles get their tags and go after every other outbound, as written
@@ -638,6 +646,7 @@ object CoreConfigManager {
             content = content,
             aetherCore = core,
             masterDnsCore = masterDnsCore,
+            dnsttCore = dnsttCore,
         )
     }
 
@@ -920,6 +929,26 @@ object CoreConfigManager {
             }
         }
         LogUtil.w(AppConfig.TAG, "MasterDNS cannot serve this configuration: $dependency, guid=$guid")
+        return ConfigResult(status = false, guid = guid, errorMessage = message, localizedError = true)
+    }
+
+    /** A DNSTT profile whose real engine cannot serve this placement or document. */
+    private fun dnsttFailure(context: Context, guid: String, dependency: DnsttDependency): ConfigResult? {
+        val message = when (dependency) {
+            DnsttDependency.None, is DnsttDependency.Single -> return null
+            DnsttDependency.Unsupported -> context.getString(R.string.dnstt_unsupported_combination)
+            is DnsttDependency.Invalid -> when (dependency.problem) {
+                DnsttFmt.Problem.DOMAIN_MISSING -> context.getString(R.string.dnstt_error_domain_missing)
+                DnsttFmt.Problem.DOMAIN_INVALID -> context.getString(R.string.dnstt_error_domain)
+                DnsttFmt.Problem.TRANSPORT_INVALID -> context.getString(R.string.dnstt_error_transport)
+                DnsttFmt.Problem.RESOLVER_MISSING -> context.getString(R.string.dnstt_error_resolver_missing)
+                DnsttFmt.Problem.RESOLVER_INVALID -> context.getString(R.string.dnstt_error_resolver)
+                DnsttFmt.Problem.PUBLIC_KEY_MISSING -> context.getString(R.string.dnstt_error_key_missing)
+                DnsttFmt.Problem.PUBLIC_KEY_INVALID -> context.getString(R.string.dnstt_error_key)
+                DnsttFmt.Problem.UTLS_INVALID -> context.getString(R.string.dnstt_error_utls)
+            }
+        }
+        LogUtil.w(AppConfig.TAG, "DNSTT cannot serve this configuration: $dependency, guid=$guid")
         return ConfigResult(status = false, guid = guid, errorMessage = message, localizedError = true)
     }
 

@@ -815,4 +815,34 @@
     <string name="masterdns_core_stopped">موتور MasterDNS متوقف شد.</string>
     <string name="masterdns_port_taken">پورت محلی %1$d از قبل در استفاده است و MasterDNS نمی‌تواند از آن استفاده کند.</string>
     <string name="masterdns_unsupported_combination">MasterDNS فعلاً فقط به‌عنوان پروفایل اصلی مستقل کار می‌کند و داخل chain یا policy-group پشتیبانی نمی‌شود.</string>
+
+    <string name="dnstt_title">DNSTT</string>
+    <string name="menu_item_import_config_manually_dnstt">DNSTT</string>
+    <string name="dnstt_lab_transport">نوع انتقال</string>
+    <string name="dnstt_transport_support">کلاینت رسمی از DoH، DoT و DNS بر روی UDP پشتیبانی می‌کند.</string>
+    <string name="dnstt_lab_resolver">Resolver یا نشانی DoH</string>
+    <string name="dnstt_hint_resolver">https://cloudflare-dns.com/dns-query یا 1.1.1.1:53</string>
+    <string name="dnstt_resolver_support">برای DoH نشانی HTTPS و برای DoT یا UDP مقدار host:port وارد کنید.</string>
+    <string name="dnstt_lab_domain">دامنهٔ tunnel</string>
+    <string name="dnstt_hint_domain">t.example.com</string>
+    <string name="dnstt_domain_support">دامنه‌ای که به سرور DNSTT شما واگذار شده است.</string>
+    <string name="dnstt_lab_public_key">کلید عمومی سرور</string>
+    <string name="dnstt_hint_public_key">۶۴ نویسهٔ hexadecimal</string>
+    <string name="dnstt_public_key_support">کلید عمومی ۳۲ بایتی سرور DNSTT، به شکل ۶۴ نویسهٔ hexadecimal.</string>
+    <string name="dnstt_lab_utls">توزیع fingerprint در uTLS</string>
+    <string name="dnstt_utls_support">این مقدار به کلاینت رسمی داده می‌شود؛ مگر برای سرور خود، مقدار پیش‌فرض را نگه دارید.</string>
+    <string name="dnstt_engine_notice">از dnstt-client رسمی با مجوز public-domain استفاده می‌شود. سرور DNSTT باید خروجی tunnel را به SOCKS5 بدون احراز هویت وصل کند؛ این برنامه DNSTT را به TUN تبدیل نمی‌کند و proxy راه‌دور جعلی نمی‌سازد.</string>
+    <string name="dnstt_error_domain_missing">دامنهٔ tunnel برای DNSTT را وارد کنید.</string>
+    <string name="dnstt_error_domain">یک دامنهٔ tunnel معتبر برای DNSTT وارد کنید.</string>
+    <string name="dnstt_error_transport">یکی از DoH، DoT یا UDP را انتخاب کنید.</string>
+    <string name="dnstt_error_resolver_missing">Resolver یا نشانی DoH را وارد کنید.</string>
+    <string name="dnstt_error_resolver">برای نوع انتقال انتخاب‌شده یک resolver معتبر وارد کنید.</string>
+    <string name="dnstt_error_key_missing">کلید عمومی سرور DNSTT را وارد کنید.</string>
+    <string name="dnstt_error_key">کلید عمومی باید دقیقاً ۶۴ نویسهٔ hexadecimal باشد.</string>
+    <string name="dnstt_error_utls">مقدار uTLS باید یک خط معتبر باشد.</string>
+    <string name="dnstt_unsupported_abi">این بسته موتور DNSTT مناسب دستگاه شما را ندارد.</string>
+    <string name="dnstt_core_connecting">DNSTT در حال اتصال است…</string>
+    <string name="dnstt_core_stopped">موتور DNSTT متوقف شد.</string>
+    <string name="dnstt_port_taken">پورت محلی %1$d از قبل در استفاده است و DNSTT نمی‌تواند از آن استفاده کند.</string>
+    <string name="dnstt_unsupported_combination">DNSTT فعلاً فقط به‌عنوان پروفایل اصلی مستقل کار می‌کند و داخل chain یا policy-group پشتیبانی نمی‌شود.</string>
 </resources>

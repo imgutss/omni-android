@@ -25,7 +25,8 @@ private enum class ImportMenuAction(@StringRes val labelRes: Int, val action: Ma
     WireGuard(R.string.menu_item_import_config_manually_wireguard, MainAction.ImportManually(EConfigType.WIREGUARD.value)),
     Hysteria2(R.string.menu_item_import_config_manually_hysteria2, MainAction.ImportManually(EConfigType.HYSTERIA2.value)),
     Aether(R.string.menu_item_import_config_manually_aether, MainAction.ImportManually(EConfigType.AETHER.value)),
-    MasterDns(R.string.menu_item_import_config_manually_masterdns, MainAction.ImportManually(EConfigType.MASTERDNS.value))
+    MasterDns(R.string.menu_item_import_config_manually_masterdns, MainAction.ImportManually(EConfigType.MASTERDNS.value)),
+    Dnstt(R.string.menu_item_import_config_manually_dnstt, MainAction.ImportManually(EConfigType.DNSTT.value))
 }
 
 enum class MainMoreMenuAction(@StringRes val labelRes: Int) {

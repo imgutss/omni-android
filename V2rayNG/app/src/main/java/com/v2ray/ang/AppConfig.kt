@@ -281,6 +281,7 @@ object AppConfig {
     const val V2RAYNFMTS = "v2rayn://"
     const val AETHER = "aether://"
     const val MASTERDNS = "masterdns://"
+    const val DNSTT = "dnstt://"
 
     /** Give a good name to this, IDK*/
     const val VPN = "VPN"

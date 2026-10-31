@@ -62,6 +62,9 @@ object CoreServiceManager {
 
     /** The official MasterDnsVPN process the running configuration depends on, if any. */
     private var currentMasterDns: MasterDnsCore? = null
+
+    /** The official DNSTT process the running configuration depends on, if any. */
+    private var currentDnstt: DnsttCore? = null
     private var processFinder: XrayProcessFinder? = null
     private var browserDialer: IDialerService? = null
 
@@ -83,6 +86,12 @@ object CoreServiceManager {
 
     @Volatile
     private var masterDnsExitHandled = false
+
+    private val dnsttScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var dnsttWarmUpJob: Job? = null
+
+    @Volatile
+    private var dnsttExitHandled = false
 
     @Volatile
     private var isReloading = false
@@ -205,6 +214,7 @@ object CoreServiceManager {
 
         cancelAetherWarmUp()
         cancelMasterDnsWarmUp()
+        cancelDnsttWarmUp()
         // Starting a configuration ends the config tests, whatever the configuration: that is what a start
         // means to the user, and the tests spawn Aether cores of their own, which a session's core must not
         // come up beside, on the same key or with Psiphon on the same datastore. The same goes for the test
@@ -240,24 +250,38 @@ object CoreServiceManager {
                 throw StartFailure(service.getString(R.string.masterdns_port_taken, masterDns.port))
             }
         }
+        val dnstt = result.dnsttCore
+        if (dnstt != null) {
+            if (!DnsttCoreManager.isSupported(service)) {
+                throw StartFailure(service.getString(R.string.dnstt_unsupported_abi))
+            }
+            if (AetherDependency.inboundListensOn(result.content, dnstt.port)) {
+                throw StartFailure(service.getString(R.string.dnstt_port_taken, dnstt.port))
+            }
+        }
         // A reload still has the previous session's cores; they end before Xray starts again. New
         // external cores start once Xray listens, see launchNativeCore.
         AetherCoreManager.stop()
         MasterDnsCoreManager.stop()
+        DnsttCoreManager.stop()
         if (aether != null) {
             checkAetherPorts(service, guid, aether, result.content, isReload)
         }
         if (masterDns != null) {
             checkMasterDnsPort(service, guid, masterDns, isReload)
         }
-        if ((aether != null || masterDns != null) && !goesOn()) return false
+        if (dnstt != null) {
+            checkDnsttPort(service, guid, dnstt, isReload)
+        }
+        if ((aether != null || masterDns != null || dnstt != null) && !goesOn()) return false
 
         try {
-            launchNativeCore(service, guid, config, aether, masterDns, result.content, vpnInterface, isReload)
+            launchNativeCore(service, guid, config, aether, masterDns, dnstt, result.content, vpnInterface, isReload)
         } catch (e: Exception) {
             // Setup failed after this attempt spawned an external process; release both kinds.
             AetherCoreManager.stop()
             MasterDnsCoreManager.stop()
+            DnsttCoreManager.stop()
             throw e
         }
         return true
@@ -274,6 +298,7 @@ object CoreServiceManager {
         )
         AetherCoreManager.stop()
         MasterDnsCoreManager.stop()
+        DnsttCoreManager.stop()
         throw StartFailure(message())
     }
 
@@ -339,12 +364,30 @@ object CoreServiceManager {
     }
 
     @Throws(Exception::class)
+    private fun checkDnsttPort(service: Service, guid: String, core: DnsttCore, isReload: Boolean) {
+        val attempt = "${service.javaClass.simpleName} ${if (isReload) "reload" else "start"}"
+        when (val check = DnsttCoreManager.checkSessionPort(core.port)) {
+            DnsttCoreManager.PortCheck.Free -> Unit
+            DnsttCoreManager.PortCheck.Taken -> {
+                LogUtil.w(AppConfig.TAG, "StartCore-Manager: $attempt refused, DNSTT port ${core.port} is taken, guid=$guid")
+                throw StartFailure(service.getString(R.string.dnstt_port_taken, core.port))
+            }
+            is DnsttCoreManager.PortCheck.Unchecked -> {
+                val message = "StartCore-Manager: $attempt could not check the DNSTT port, guid=$guid"
+                check.cause?.let { LogUtil.w(AppConfig.TAG, message, it) } ?: LogUtil.w(AppConfig.TAG, message)
+                throw IllegalStateException("The DNSTT session port could not be checked", check.cause)
+            }
+        }
+    }
+
+    @Throws(Exception::class)
     private fun launchNativeCore(
         service: Service,
         guid: String,
         config: ProfileItem,
         aether: AetherCore?,
         masterDns: MasterDnsCore?,
+        dnstt: DnsttCore?,
         content: String,
         vpnInterface: ParcelFileDescriptor?,
         isReload: Boolean,
@@ -352,6 +395,7 @@ object CoreServiceManager {
         currentConfig = config
         currentAether = aether
         currentMasterDns = masterDns
+        currentDnstt = dnstt
         var tunFd = vpnInterface?.fd ?: 0
         val dialerMode = BrowserDialerMode.from(config.browserDialerMode)
         val dialerAddr = if (dialerMode != null) {
@@ -389,6 +433,13 @@ object CoreServiceManager {
             }
             MasterDnsCoreManager.start(service, masterDns, protect) { onMasterDnsExit(guid) }
         }
+        if (dnstt != null) {
+            dnsttExitHandled = false
+            val protect: ((Int) -> Boolean)? = if (vpnInterface == null) null else { fd ->
+                serviceControl?.get()?.vpnProtect(fd) == true
+            }
+            DnsttCoreManager.start(service, dnstt, protect) { onDnsttExit(guid) }
+        }
 
         if (browserDialer != null) {
             browserDialer!!.stop()
@@ -412,6 +463,8 @@ object CoreServiceManager {
             announceAetherWarmUp(service, guid, isReload)
         } else if (masterDns != null) {
             announceMasterDnsWarmUp(service, guid, isReload)
+        } else if (dnstt != null) {
+            announceDnsttWarmUp(service, guid, isReload)
         } else if (!isReload) {
             MessageHelper.sendMsg2UI(service, AppConfig.MSG_STATE_START_SUCCESS, "")
         }
@@ -497,6 +550,47 @@ object CoreServiceManager {
         }
     }
 
+    /** Reports DNSTT ready only after the remote SOCKS5 path answers a real greeting. */
+    private fun announceDnsttWarmUp(service: Service, guid: String, isReload: Boolean) {
+        val connecting = service.getString(R.string.dnstt_core_connecting)
+        MessageHelper.sendMsg2UI(service, AppConfig.MSG_STATE_RUNNING, "")
+        MessageHelper.sendMsg2UI(service, AppConfig.MSG_STATE_CONNECTING, connecting)
+        NotificationManager.setStatusLine(connecting)
+        dnsttWarmUpJob = dnsttScope.launch {
+            var listening = false
+            while (isActive && !listening && DnsttCoreManager.isRunning) {
+                listening = DnsttCoreManager.awaitListening(AETHER_WARM_UP_MS)
+            }
+            when (AetherCoreManager.warmUpOutcome(listening, isActive, isRunning())) {
+                AetherCoreManager.WarmUpOutcome.ABANDONED -> Unit
+                AetherCoreManager.WarmUpOutcome.CORE_EXITED -> onDnsttExit(guid)
+                AetherCoreManager.WarmUpOutcome.LISTENING -> {
+                    NotificationManager.setStatusLine(null)
+                    val ready = if (isReload) AppConfig.MSG_STATE_RUNNING else AppConfig.MSG_STATE_START_SUCCESS
+                    MessageHelper.sendMsg2UI(service, ready, "")
+                }
+            }
+        }
+    }
+
+    private fun cancelDnsttWarmUp() {
+        dnsttWarmUpJob?.cancel()
+        dnsttWarmUpJob = null
+        NotificationManager.setStatusLine(null)
+    }
+
+    private fun onDnsttExit(guid: String) {
+        val control = serviceControl?.get() ?: return
+        val service = control.getService()
+        ContextCompat.getMainExecutor(service).execute {
+            if (dnsttExitHandled || DnsttCoreManager.isRunning || !isRunning() || serviceControl?.get() !== control) return@execute
+            dnsttExitHandled = true
+            LogUtil.e(AppConfig.TAG, "StartCore-Manager: DNSTT core exited while running, stopping ${service.javaClass.simpleName}, guid=$guid")
+            MessageHelper.sendMsg2UI(service, AppConfig.MSG_STATE_START_FAILURE, service.getString(R.string.dnstt_core_stopped))
+            control.stopService()
+        }
+    }
+
     /**
      * Stops the service once the Aether core is gone while Xray still runs. Reached from the
      * core's exit callback and from the warm-up wait, so the stop happens once per session.
@@ -533,8 +627,10 @@ object CoreServiceManager {
         NotificationManager.cancelNotification()
         cancelAetherWarmUp()
         cancelMasterDnsWarmUp()
+        cancelDnsttWarmUp()
         AetherCoreManager.stop()
         MasterDnsCoreManager.stop()
+        DnsttCoreManager.stop()
 
         if (isRunning()) {
             CoroutineScope(Dispatchers.IO).launch {
@@ -692,8 +788,10 @@ object CoreServiceManager {
             NotificationManager.cancelNotification()
             cancelAetherWarmUp()
             cancelMasterDnsWarmUp()
+            cancelDnsttWarmUp()
             AetherCoreManager.stop()
             MasterDnsCoreManager.stop()
+            DnsttCoreManager.stop()
             try {
                 coreController.stopLoop()
             } catch (e: Exception) {
@@ -764,6 +862,14 @@ object CoreServiceManager {
             }
             if (currentMasterDns != null && !MasterDnsCoreManager.awaitListening(AetherDelayTester.TEST_BUDGET_MS)) {
                 val reason = if (MasterDnsCoreManager.isRunning) R.string.masterdns_core_connecting else R.string.masterdns_core_stopped
+                val stalled = ConnectionTestResult(delayMillis = -1L, errorMessage = service.getString(reason))
+                withContext(Dispatchers.Main.immediate) {
+                    MessageHelper.sendMsg2UI(service, AppConfig.MSG_MEASURE_DELAY_RESULT, stalled, requestId)
+                }
+                return@launch
+            }
+            if (currentDnstt != null && !DnsttCoreManager.awaitListening(AetherDelayTester.TEST_BUDGET_MS)) {
+                val reason = if (DnsttCoreManager.isRunning) R.string.dnstt_core_connecting else R.string.dnstt_core_stopped
                 val stalled = ConnectionTestResult(delayMillis = -1L, errorMessage = service.getString(reason))
                 withContext(Dispatchers.Main.immediate) {
                     MessageHelper.sendMsg2UI(service, AppConfig.MSG_MEASURE_DELAY_RESULT, stalled, requestId)

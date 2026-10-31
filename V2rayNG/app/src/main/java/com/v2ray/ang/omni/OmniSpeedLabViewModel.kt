@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.v2ray.ang.core.CoreConfigManager
+import com.v2ray.ang.core.DnsttDelayTester
 import com.v2ray.ang.core.MasterDnsDelayTester
 import com.v2ray.ang.dto.RealPingEvent
 import com.v2ray.ang.omni.lab.OmniTransferLab
@@ -142,17 +143,20 @@ class OmniSpeedLabViewModel(application: Application) : AndroidViewModel(applica
                             activeRuntime = runtime
                             val lab = OmniTransferLab(runtime)
                             val masterDns = config.masterDnsCore
+                            val dnstt = config.dnsttCore
                             var coreUnavailable = false
                             suspend fun measure(url: String): OmniTransferResult {
                                 val operation: suspend () -> OmniTransferResult = {
                                     lab.measure(config.content, url, uploadUrl, uploadSize ?: 1_048_576, downloadSize)
                                 }
-                                return if (masterDns == null) {
-                                    operation()
-                                } else {
-                                    MasterDnsDelayTester.withCore(
+                                return when {
+                                    masterDns != null -> MasterDnsDelayTester.withCore(
                                         getApplication(), masterDns, MasterDnsDelayTester.STARTUP_BUDGET_MS, profile.guid, operation,
                                     ) ?: OmniTransferResult(false, error = "MasterDNS core did not start").also { coreUnavailable = true }
+                                    dnstt != null -> DnsttDelayTester.withCore(
+                                        getApplication(), dnstt, DnsttDelayTester.STARTUP_BUDGET_MS, profile.guid, operation,
+                                    ) ?: OmniTransferResult(false, error = "DNSTT core did not start").also { coreUnavailable = true }
+                                    else -> operation()
                                 }
                             }
                             var transfer = measure(attemptedUrl)

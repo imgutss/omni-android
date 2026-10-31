@@ -823,4 +823,34 @@
     <string name="masterdns_core_stopped">The MasterDNS core stopped.</string>
     <string name="masterdns_port_taken">MasterDNS cannot use local port %1$d because it is already in use.</string>
     <string name="masterdns_unsupported_combination">MasterDNS currently works only as a standalone primary profile, not inside a chain or policy group.</string>
+
+    <string name="dnstt_title">DNSTT</string>
+    <string name="menu_item_import_config_manually_dnstt">DNSTT</string>
+    <string name="dnstt_lab_transport">Transport</string>
+    <string name="dnstt_transport_support">The official client supports DNS-over-HTTPS, DNS-over-TLS, and UDP DNS.</string>
+    <string name="dnstt_lab_resolver">Resolver or DoH URL</string>
+    <string name="dnstt_hint_resolver">https://cloudflare-dns.com/dns-query or 1.1.1.1:53</string>
+    <string name="dnstt_resolver_support">Use an HTTPS URL for DoH; use host:port for DoT or UDP.</string>
+    <string name="dnstt_lab_domain">Tunnel domain</string>
+    <string name="dnstt_hint_domain">t.example.com</string>
+    <string name="dnstt_domain_support">The domain delegated to your DNSTT server.</string>
+    <string name="dnstt_lab_public_key">Server public key</string>
+    <string name="dnstt_hint_public_key">64 hexadecimal characters</string>
+    <string name="dnstt_public_key_support">The DNSTT server’s 32-byte public key, written as 64 hexadecimal characters.</string>
+    <string name="dnstt_lab_utls">uTLS fingerprint distribution</string>
+    <string name="dnstt_utls_support">Passed to the official client; leave the default unless your server requires another value.</string>
+    <string name="dnstt_engine_notice">Uses the official public-domain dnstt-client. The DNSTT server must forward its tunnel to a no-auth SOCKS5 service; this app does not turn DNSTT into a TUN or invent a remote proxy.</string>
+    <string name="dnstt_error_domain_missing">Enter the DNSTT tunnel domain.</string>
+    <string name="dnstt_error_domain">Enter a valid DNSTT tunnel domain.</string>
+    <string name="dnstt_error_transport">Choose DoH, DoT, or UDP.</string>
+    <string name="dnstt_error_resolver_missing">Enter a resolver or DoH URL.</string>
+    <string name="dnstt_error_resolver">Enter a valid resolver for the selected transport.</string>
+    <string name="dnstt_error_key_missing">Enter the DNSTT server public key.</string>
+    <string name="dnstt_error_key">The public key must contain exactly 64 hexadecimal characters.</string>
+    <string name="dnstt_error_utls">Enter a valid single-line uTLS value.</string>
+    <string name="dnstt_unsupported_abi">This build has no DNSTT core for this device.</string>
+    <string name="dnstt_core_connecting">DNSTT is connecting…</string>
+    <string name="dnstt_core_stopped">The DNSTT core stopped.</string>
+    <string name="dnstt_port_taken">DNSTT cannot use local port %1$d because it is already in use.</string>
+    <string name="dnstt_unsupported_combination">DNSTT currently works only as a standalone primary profile, not inside a chain or policy group.</string>
 </resources>

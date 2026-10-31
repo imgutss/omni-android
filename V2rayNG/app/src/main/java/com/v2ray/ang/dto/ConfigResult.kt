@@ -1,6 +1,7 @@
 package com.v2ray.ang.dto
 
 import com.v2ray.ang.core.AetherCore
+import com.v2ray.ang.core.DnsttCore
 import com.v2ray.ang.core.MasterDnsCore
 
 data class ConfigResult(
@@ -14,4 +15,6 @@ data class ConfigResult(
     var aetherCore: AetherCore? = null,
     /** The official MasterDnsVPN process the loopback SOCKS outbound depends on. */
     var masterDnsCore: MasterDnsCore? = null,
+    /** The official DNSTT process the loopback SOCKS outbound depends on. */
+    var dnsttCore: DnsttCore? = null,
 )

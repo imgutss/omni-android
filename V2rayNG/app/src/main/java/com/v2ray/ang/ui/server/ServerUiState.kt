@@ -31,6 +31,7 @@ import com.v2ray.ang.enums.AetherTransport
 import com.v2ray.ang.enums.EConfigType
 import com.v2ray.ang.enums.NetworkType
 import com.v2ray.ang.extension.nullIfBlank
+import com.v2ray.ang.fmt.DnsttFmt
 import com.v2ray.ang.util.JsonUtil
 
 class ServerUiState(
@@ -118,6 +119,11 @@ class ServerUiState(
     aetherCommand: String = "",
     masterDnsConfig: String = "",
     masterDnsResolvers: String = "8.8.8.8",
+    dnsttTransport: String = "doh",
+    dnsttResolver: String = "https://cloudflare-dns.com/dns-query",
+    dnsttDomain: String = "",
+    dnsttPublicKey: String = "",
+    dnsttUtls: String = DnsttFmt.DEFAULT_UTLS,
 ) {
     var configType by mutableStateOf(configType)
     var remarks by mutableStateOf(remarks)
@@ -216,6 +222,11 @@ class ServerUiState(
     var aetherCommand by mutableStateOf(aetherCommand)
     var masterDnsConfig by mutableStateOf(masterDnsConfig)
     var masterDnsResolvers by mutableStateOf(masterDnsResolvers)
+    var dnsttTransport by mutableStateOf(dnsttTransport)
+    var dnsttResolver by mutableStateOf(dnsttResolver)
+    var dnsttDomain by mutableStateOf(dnsttDomain)
+    var dnsttPublicKey by mutableStateOf(dnsttPublicKey)
+    var dnsttUtls by mutableStateOf(dnsttUtls)
 
     /**
      * Whether an Aether setting the editor keeps folded away holds a value of its own, so that the
@@ -250,6 +261,10 @@ class ServerUiState(
     var isPasswordError by mutableStateOf(false)
     var isMasterDnsConfigError by mutableStateOf(false)
     var isMasterDnsResolversError by mutableStateOf(false)
+    var isDnsttResolverError by mutableStateOf(false)
+    var isDnsttDomainError by mutableStateOf(false)
+    var isDnsttPublicKeyError by mutableStateOf(false)
+    var isDnsttUtlsError by mutableStateOf(false)
 
     /**
      * The profile the editor holds, built on [initialConfig]. An Aether profile's command line counts
@@ -266,6 +281,7 @@ class ServerUiState(
         val isHysteria2 = configType == EConfigType.HYSTERIA2
         val isAether = configType == EConfigType.AETHER
         val isMasterDns = configType == EConfigType.MASTERDNS
+        val isDnstt = configType == EConfigType.DNSTT
         val isPsiphon = isAether && aetherPsiphon != AetherPsiphon.OFF.type
         val isTor = isAether && aetherTor != AetherTor.OFF.type
 
@@ -366,6 +382,11 @@ class ServerUiState(
             aetherCommand = null,
             masterDnsConfig = if (isMasterDns) masterDnsConfig.trim() else null,
             masterDnsResolvers = if (isMasterDns) masterDnsResolvers.trim() else null,
+            dnsttTransport = if (isDnstt) dnsttTransport else null,
+            dnsttResolver = if (isDnstt) dnsttResolver.trim() else null,
+            dnsttDomain = if (isDnstt) dnsttDomain.trim().lowercase() else null,
+            dnsttPublicKey = if (isDnstt) dnsttPublicKey.trim() else null,
+            dnsttUtls = if (isDnstt) dnsttUtls.trim() else null,
         )
         // A command that says what the settings say is no command of its own: the profile follows the settings.
         val command = aetherCommand.trim()
@@ -473,6 +494,11 @@ class ServerUiState(
                 aetherCommand = initialConfig.aetherCommand ?: "",
                 masterDnsConfig = initialConfig.masterDnsConfig ?: "",
                 masterDnsResolvers = initialConfig.masterDnsResolvers ?: "8.8.8.8",
+                dnsttTransport = initialConfig.dnsttTransport ?: "doh",
+                dnsttResolver = initialConfig.dnsttResolver ?: "https://cloudflare-dns.com/dns-query",
+                dnsttDomain = initialConfig.dnsttDomain ?: "",
+                dnsttPublicKey = initialConfig.dnsttPublicKey ?: "",
+                dnsttUtls = initialConfig.dnsttUtls ?: DnsttFmt.DEFAULT_UTLS,
             )
 
         fun from(

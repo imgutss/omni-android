@@ -36,6 +36,7 @@ import com.v2ray.ang.ui.routing.RoutingSettingActivity
 import com.v2ray.ang.ui.server.ProfileEditorResult
 import com.v2ray.ang.ui.server.ServerAetherActivity
 import com.v2ray.ang.ui.server.ServerCustomConfigActivity
+import com.v2ray.ang.ui.server.ServerDnsttActivity
 import com.v2ray.ang.ui.server.ServerGroupActivity
 import com.v2ray.ang.ui.server.ServerHttpActivity
 import com.v2ray.ang.ui.server.ServerHysteria2Activity
@@ -227,6 +228,7 @@ class MainActivity : HelperBaseComponentActivity() {
             EConfigType.HYSTERIA2.value -> Intent(this, ServerHysteria2Activity::class.java)
             EConfigType.AETHER.value -> Intent(this, ServerAetherActivity::class.java)
             EConfigType.MASTERDNS.value -> Intent(this, ServerMasterDnsActivity::class.java)
+            EConfigType.DNSTT.value -> Intent(this, ServerDnsttActivity::class.java)
             else -> Intent(this, ServerHttpActivity::class.java).apply {
                 putExtra("createConfigType", createConfigType)
             }
@@ -281,6 +283,7 @@ class MainActivity : HelperBaseComponentActivity() {
             EConfigType.HYSTERIA2 -> ServerHysteria2Activity::class.java
             EConfigType.AETHER -> ServerAetherActivity::class.java
             EConfigType.MASTERDNS -> ServerMasterDnsActivity::class.java
+            EConfigType.DNSTT -> ServerDnsttActivity::class.java
             else -> ServerHttpActivity::class.java
         }
         val intent = Intent(this, activityClass).apply {

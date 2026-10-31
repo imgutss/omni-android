@@ -16,6 +16,7 @@ import com.v2ray.ang.enums.EConfigType
 import com.v2ray.ang.extension.isNotNullEmpty
 import com.v2ray.ang.fmt.AetherFmt
 import com.v2ray.ang.fmt.CustomFmt
+import com.v2ray.ang.fmt.DnsttFmt
 import com.v2ray.ang.fmt.Hysteria2Fmt
 import com.v2ray.ang.fmt.MasterDnsFmt
 import com.v2ray.ang.fmt.ShadowsocksFmt
@@ -55,6 +56,7 @@ object AngConfigManager {
             AppConfig.HY2 to Hysteria2Fmt::parse,
             EConfigType.AETHER.protocolScheme to AetherFmt::parse,
             EConfigType.MASTERDNS.protocolScheme to MasterDnsFmt::parse,
+            EConfigType.DNSTT.protocolScheme to DnsttFmt::parse,
         )
     }
 
@@ -172,6 +174,7 @@ object AngConfigManager {
                 EConfigType.HYSTERIA2 -> Hysteria2Fmt.toUri(config)
                 EConfigType.AETHER -> AetherFmt.toUri(config)
                 EConfigType.MASTERDNS -> MasterDnsFmt.toUri(config)
+                EConfigType.DNSTT -> DnsttFmt.toUri(config)
                 else -> {}
             }
         } catch (e: Exception) {
@@ -672,7 +675,7 @@ object AngConfigManager {
         val server = profile.server
         val port = profile.serverPort
         if (server.isNullOrBlank() && port.isNullOrBlank()) return ""
-        if (profile.configType == EConfigType.MASTERDNS) {
+        if (profile.configType == EConfigType.MASTERDNS || profile.configType == EConfigType.DNSTT) {
             return server?.split('.')?.dropLast(1)?.joinToString(".", postfix = ".***").orEmpty()
         }
 

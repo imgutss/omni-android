@@ -33,13 +33,16 @@ object CoreOutboundBuilder {
             EConfigType.HTTP -> toOutboundHttp(profileItem)
             EConfigType.AETHER -> toOutboundAether(profileItem)
             EConfigType.MASTERDNS -> toOutboundMasterDns(profileItem)
+            EConfigType.DNSTT -> toOutboundDnstt(profileItem)
             else -> null
         }
 
         outbound ?: return null
         // PattNG: an Aether profile's outbound only reaches its core on the loopback address; its dialMode is
         // that of the exit-node its traffic leaves Xray by, see toOutboundAetherExit.
-        if (profileItem.configType != EConfigType.AETHER && profileItem.configType != EConfigType.MASTERDNS) {
+        if (profileItem.configType != EConfigType.AETHER && profileItem.configType != EConfigType.MASTERDNS &&
+            profileItem.configType != EConfigType.DNSTT
+        ) {
             applyDialMode(outbound, profileItem)
         }
         applyTargetStrategy(outbound, profileItem)
@@ -314,6 +317,16 @@ object CoreOutboundBuilder {
         outboundBean?.settings?.let { settings ->
             settings.address = AppConfig.LOOPBACK
             settings.port = MasterDnsCore.of(profileItem).port
+        }
+        return outboundBean
+    }
+
+    /** A SOCKS outbound to the official DNSTT forwarder, whose remote end must be SOCKS5. */
+    internal fun toOutboundDnstt(profileItem: ProfileItem): OutboundBean? {
+        val outboundBean = createInitOutbound(EConfigType.SOCKS)
+        outboundBean?.settings?.let { settings ->
+            settings.address = AppConfig.LOOPBACK
+            settings.port = DnsttCore.of(profileItem).port
         }
         return outboundBean
     }
