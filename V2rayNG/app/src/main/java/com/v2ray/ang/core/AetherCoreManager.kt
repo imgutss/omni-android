@@ -198,6 +198,9 @@ object AetherCoreManager {
      */
     private val psiphonReady = Regex("""psiphon is ready""")
 
+    /** Arti has completed bootstrap and the selected Tor listener is ready to serve streams. */
+    private val torReady = Regex("""\[\+\] tor is ready;""")
+
     /**
      * The core's word that it did not start the session for want of an ECH key: ECH is on, and it had no key it
      * could offer, so it stopped rather than send the server name in the clear.
@@ -979,11 +982,17 @@ object AetherCoreManager {
         var logLevel = coreLogLevel(MmkvManager.decodeSettingsString(AppConfig.PREF_LOGLEVEL))
         // The ready word is an info line; a quieter setting must not leave a Psiphon session waiting for it.
         if (readyNeedsWord(core.arguments) && logLevel !in infoLevels) logLevel = DEFAULT_LOG_LEVEL
-        val arguments = withLogLevel(core.arguments, logLevel)
+        val arguments = if (readyNeedsWord(core.arguments)) {
+            // Readiness must not disappear when a profile or a hand-written command selects a quiet
+            // log level. The native ready line is the proof that the carrier has a usable tunnel.
+            withInfoLines(core.arguments)
+        } else {
+            withLogLevel(core.arguments, logLevel)
+        }
         val next = Session(
             core.port,
             arguments,
-            needsWord = readyNeedsWord(arguments) && showsInfo(arguments),
+            needsWord = readyNeedsWord(arguments),
             context = appContext,
             onExit = onExit,
         )
@@ -994,17 +1003,31 @@ object AetherCoreManager {
     }
 
     /**
-     * True when the listener the app dials is Psiphon's, inside the tunnel or alone: it answers the
-     * greeting before it carries anything, so readiness needs the core's word as well.
+     * True when the listener the app dials belongs to a carrier which answers SOCKS before its
+     * tunnel exists. Tor-only and Tor-chain therefore need Arti's post-bootstrap ready line too;
+     * Tor-reverse is deliberately excluded because the app dials the WARP/core listener instead.
      */
-    internal fun readyNeedsWord(arguments: List<String>): Boolean = when (aloneOf(arguments)) {
-        PSIPHON_NAME -> true
-        TOR_NAME -> false
-        else -> psiphonModeOf(arguments) == AetherPsiphon.CHAIN
-    }
+    internal fun readyNeedsWord(arguments: List<String>): Boolean =
+        needsTorReadyWord(arguments) || needsPsiphonReadyWord(arguments)
 
-    /** True when [line] is the core's word that the listener the app dials carries traffic now. */
-    internal fun isReadyWord(line: String): Boolean = psiphonReady.containsMatchIn(line)
+    private fun needsTorReadyWord(arguments: List<String>): Boolean =
+        aloneOf(arguments) == TOR_NAME || listenerFlagOf(arguments) == TOR_BIND
+
+    private fun needsPsiphonReadyWord(arguments: List<String>): Boolean =
+        aloneOf(arguments) == PSIPHON_NAME || listenerFlagOf(arguments) == PSIPHON_BIND
+
+    /** True when [line] is Psiphon's ready word (kept for the existing probe/tests). */
+    internal fun isReadyWord(line: String): Boolean = psiphonReady.containsMatchIn(outputMessage(line))
+
+    /** The ready word for the particular listener [arguments] makes the app dial. */
+    internal fun isReadyWord(line: String, arguments: List<String>): Boolean {
+        val message = outputMessage(line)
+        return when {
+            needsTorReadyWord(arguments) -> torReady.containsMatchIn(message)
+            needsPsiphonReadyWord(arguments) -> psiphonReady.containsMatchIn(message)
+            else -> false
+        }
+    }
 
     /** True when [line] is the core's word that it stopped for want of an ECH key; see [noEchKey]. */
     internal fun isNoEchKeyWord(line: String): Boolean = noEchKey.containsMatchIn(line)
@@ -1693,7 +1716,7 @@ object AetherCoreManager {
         try {
             process.inputStream.bufferedReader().forEachLine { line ->
                 relay(line, "aether")
-                if (!target.wordSeen && isReadyWord(line)) target.wordSeen = true
+                if (!target.wordSeen && isReadyWord(line, target.arguments)) target.wordSeen = true
                 if (isNoEchKeyWord(line)) target.noEchKey = true
                 // A core the app stopped, or one a new start replaced, is no longer the session's to end.
                 if (target.chainEnd == null && session === target) {

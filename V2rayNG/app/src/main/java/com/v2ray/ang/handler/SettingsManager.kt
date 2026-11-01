@@ -34,9 +34,6 @@ import kotlin.random.Random
 
 object SettingsManager {
 
-    @Volatile
-    private var runtimeSocksPort: Int? = null
-
     fun initApp(context: Context) {
         ensureDefaultSettings()
         //ensureDefaultSubscription()
@@ -323,22 +320,24 @@ object SettingsManager {
      * @return The SOCKS port.
      */
     fun getSocksPort(): Int {
-        val port =
-            if (IsDynamicSocksPort()) {
-                runtimeSocksPort ?: refreshRuntimeSocksPort()
-            } else {
-                Utils.parseInt(MmkvManager.decodeSettingsString(AppConfig.PREF_SOCKS_PORT), AppConfig.PORT_SOCKS.toInt())
-            }
-        return port ?: AppConfig.PORT_SOCKS.toInt()
+        if (IsDynamicSocksPort()) {
+            // The UI process refreshes this before starting the daemon. Read the shared value on every
+            // call: a daemon that survives a previous session must not keep its old process-local port.
+            val shared = MmkvManager.decodeSettingsInt(AppConfig.PREF_RUNTIME_SOCKS_PORT, 0)
+            if (shared in 10000..65534) return shared
+            return refreshRuntimeSocksPort() ?: AppConfig.PORT_SOCKS.toInt()
+        }
+        return Utils.parseInt(MmkvManager.decodeSettingsString(AppConfig.PREF_SOCKS_PORT), AppConfig.PORT_SOCKS.toInt())
     }
 
     @Synchronized
     fun refreshRuntimeSocksPort(): Int? {
-        if (IsDynamicSocksPort()) {
-            runtimeSocksPort = generateRandomSocksPort()
-            return runtimeSocksPort
-        }
-        return null
+        if (!IsDynamicSocksPort()) return null
+        val port = generateRandomSocksPort()
+        // MMKV is multi-process; a random value held only in this process makes the UI and :daemon
+        // generate different listeners when dynamic ports are enabled.
+        MmkvManager.encodeSettings(AppConfig.PREF_RUNTIME_SOCKS_PORT, port)
+        return port
     }
 
     fun getSocksUsername(): String? {
@@ -572,7 +571,9 @@ object SettingsManager {
 
     /** Whether the core keeps its local proxy, see [isLocalProxyKept]. */
     internal fun keepsLocalProxy(vpnMode: Boolean, hevTun: Boolean, rootMode: Boolean, lanSharing: Boolean, localProxySet: Boolean): Boolean {
-        return (vpnMode && hevTun) || rootMode || lanSharing || localProxySet
+        // Proxy-only mode has no TUN to capture Telegram or another app's traffic. Its loopback
+        // listener is therefore the service itself, not an optional display/diagnostic feature.
+        return !vpnMode || (vpnMode && hevTun) || rootMode || lanSharing || localProxySet
     }
 
     /**

@@ -60,6 +60,8 @@ object AppConfig {
     const val PREF_ENABLE_LOCAL_PROXY = "pref_enable_local_proxy"
     const val PREF_SOCKS_PORT = "pref_socks_port"
     const val PREF_DYNAMIC_SOCKS_PORT = "pref_dynamic_socks_port"
+    /** The per-start dynamic SOCKS port shared by the UI and :daemon processes. */
+    const val PREF_RUNTIME_SOCKS_PORT = "pref_runtime_socks_port"
     const val PREF_SOCKS_USERNAME = "pref_socks_username"
     const val PREF_SOCKS_PASSWORD = "pref_socks_password"
     const val PREF_SOCKS_ENABLE_UDP = "pref_socks_enable_udp"

@@ -1,8 +1,10 @@
 package com.v2ray.ang.core
 
+import com.google.gson.JsonParser
 import com.v2ray.ang.fmt.DnsttFmt
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.io.File
@@ -105,6 +107,24 @@ class DnsttCoreManagerTest {
     fun proxyAndRootModesDoNotInventAProtectEndpoint() {
         val arguments = DnsttCoreManager.processArguments(File("/bin/libdnstt.so"), core, null)
         assertFalse(arguments.any { it.startsWith("-fd-control-unix-socket=") })
+    }
+
+    @Test
+    fun portFallbackRewritesOnlyTheSingleLoopbackDnsttOutbound() {
+        val content = """
+            {"inbounds":[],"outbounds":[
+              {"tag":"proxy","protocol":"socks","settings":{"address":"127.0.0.1","port":18001}},
+              {"tag":"other","protocol":"socks","settings":{"address":"127.0.0.1","port":19000}},
+              {"tag":"direct","protocol":"freedom","settings":{}}
+            ]}
+        """.trimIndent()
+        val rewritten = DnsttCoreManager.withDnsttPort(content, 18001, 28001) ?: error("DNSTT outbound should be rewritten")
+        val outbounds = JsonParser.parseString(rewritten).asJsonObject.getAsJsonArray("outbounds")
+        assertEquals(28001, outbounds[0].asJsonObject.getAsJsonObject("settings").get("port").asInt)
+        assertEquals(19000, outbounds[1].asJsonObject.getAsJsonObject("settings").get("port").asInt)
+        assertEquals("freedom", outbounds[2].asJsonObject.get("protocol").asString)
+        assertNull(DnsttCoreManager.withDnsttPort(content, 17000, 28001))
+        assertNull(DnsttCoreManager.withDnsttPort("{}", 18001, 28001))
     }
 
     @Test

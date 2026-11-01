@@ -1,6 +1,8 @@
 package com.v2ray.ang.fmt
 
 import com.v2ray.ang.dto.entities.ProfileItem
+import com.v2ray.ang.enums.AetherTor
+import com.v2ray.ang.enums.AetherTorBridges
 import com.v2ray.ang.enums.EConfigType
 import java.nio.charset.StandardCharsets
 import java.util.Base64
@@ -25,6 +27,31 @@ object SlipNetFmt : FmtBase() {
     private const val MODE_DNSTT = "dnstt"
     private const val MODE_DNSTT_SSH = "dnstt_ssh"
     private const val MODE_NOIZDNS = "sayedns"
+    private const val MODE_SNOWFLAKE = "snowflake"
+
+    /**
+     * SlipNet's blank Snowflake mode is a built-in Snowflake configuration, not Aether's automatic
+     * public-relay mode. These are ordinary Tor bridge lines, so the imported profile remains
+     * editable and the pinned lyrebird can supply the same rendezvous parameters.
+     */
+    private const val SNOWFLAKE_ICE =
+        "stun:stun.antisip.com:3478,stun:stun.epygi.com:3478,stun:stun.uls.co.za:3478," +
+            "stun:stun.voipgate.com:3478,stun:stun.mixvoip.com:3478,stun:stun.nextcloud.com:3478," +
+            "stun:stun.bethesda.net:3478,stun:stun.nextcloud.com:443,stun:stun.sipgate.net:3478," +
+            "stun:stun.sipgate.net:10000,stun:stun.sonetel.com:3478,stun:stun.voipia.net:3478," +
+            "stun:stun.ucsb.edu:3478,stun:stun.schlund.de:3478"
+    private const val SNOWFLAKE_FINGERPRINT = "2B280B23E1107BB62ABFC40DDCC8824814F80A72"
+
+    /** AMP is a rendezvous option of the same Snowflake transport, supported by lyrebird's ampcache arg. */
+    private val builtInSnowflakeAmpBridge =
+        "snowflake 192.0.2.3:80 $SNOWFLAKE_FINGERPRINT " +
+            "fingerprint=$SNOWFLAKE_FINGERPRINT url=https://snowflake-broker.torproject.net/ " +
+            "fronts=www.google.com ice=$SNOWFLAKE_ICE utls-imitate=hellorandomizedalpn " +
+            "ampcache=https://cdn.ampproject.org/"
+    private val builtInSnowflakeBridges =
+        "snowflake 192.0.2.3:80 $SNOWFLAKE_FINGERPRINT " +
+            "fingerprint=$SNOWFLAKE_FINGERPRINT url=https://1098762253.rsc.cdn77.org/ " +
+            "fronts=www.cdn77.com ice=$SNOWFLAKE_ICE utls-imitate=hellorandomizedalpn"
 
     /** Parses one original slipnet:// URI, without a conversion step. */
     fun parse(str: String): ProfileItem? {
@@ -50,6 +77,7 @@ object SlipNetFmt : FmtBase() {
         if (version < 2) return null
 
         val mode = fields[1].trim().lowercase()
+        if (mode == MODE_SNOWFLAKE) return parseSnowflake(fields)
         val isNoiz = when (mode) {
             MODE_DNSTT, MODE_DNSTT_SSH -> false
             MODE_NOIZDNS -> true
@@ -120,6 +148,45 @@ object SlipNetFmt : FmtBase() {
             }
         }
         return profile.takeIf { DnsttFmt.normalize(it) == null }
+    }
+
+    /** Imports SlipNet's Tor record without routing it through the DNSTT validator. */
+    private fun parseSnowflake(fields: List<String>): ProfileItem? {
+        val name = fields.getOrNull(2)?.trim().orEmpty()
+        if (name.isEmpty()) return null
+        val encoded = fields.getOrNull(26)?.trim().orEmpty()
+        val decoded = if (encoded.isEmpty()) "" else decode(encoded) ?: return null
+        if (decoded.indexOf('\u0000') >= 0) return null
+
+        val mode = decoded.trim()
+        val direct = mode.equals("DIRECT", ignoreCase = true)
+        val amp = mode.equals("SNOWFLAKE_AMP", ignoreCase = true)
+        val smart = mode.equals("SMART", ignoreCase = true)
+        val bridgeText = when {
+            direct || smart -> null
+            amp -> builtInSnowflakeAmpBridge
+            decoded.isBlank() -> builtInSnowflakeBridges
+            else -> decoded
+        }
+        if (bridgeText != null && AetherFmt.bridgeLines(bridgeText).isEmpty()) return null
+
+        val profile = ProfileItem.create(EConfigType.AETHER).also {
+            it.remarks = name
+            it.aetherTor = AetherTor.ONLY.type
+            it.aetherTorBridges = when {
+                direct -> AetherTorBridges.NEVER.type
+                // Aether's AUTO mode tries plain Tor first and then its available bridges, which is
+                // the native equivalent of SlipNet's sequential Smart Connect profile.
+                smart -> AetherTorBridges.AUTO.type
+                else -> AetherTorBridges.OWN.type
+            }
+            // Keep custom records byte-for-byte; AetherFmt normalizes torrc-compatible whitespace
+            // and Bridge prefixes only when the editor subsequently saves the profile.
+            it.aetherTorBridgeLines = bridgeText
+        }
+        // Validate a copy so normalization cannot alter the preserved bridge text in the import.
+        val validation = profile.copy()
+        return profile.takeIf { AetherFmt.normalize(validation) == null }
     }
 
     private data class CanonicalResolvers(

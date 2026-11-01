@@ -26,8 +26,9 @@ class LocalProxyTest {
     }
 
     @Test
-    fun theProxyOnlyModeKeepsTheLocalProxyOnlyAsSet() {
-        assertFalse(SettingsManager.keepsLocalProxy(vpnMode = false, hevTun = true, rootMode = false, lanSharing = false, localProxySet = false))
+    fun theProxyOnlyModeAlwaysKeepsTheLocalProxyForOtherApps() {
+        assertTrue(SettingsManager.keepsLocalProxy(vpnMode = false, hevTun = true, rootMode = false, lanSharing = false, localProxySet = false))
+        assertTrue(SettingsManager.keepsLocalProxy(vpnMode = false, hevTun = false, rootMode = false, lanSharing = false, localProxySet = false))
         assertTrue(SettingsManager.keepsLocalProxy(vpnMode = false, hevTun = false, rootMode = false, lanSharing = false, localProxySet = true))
     }
 

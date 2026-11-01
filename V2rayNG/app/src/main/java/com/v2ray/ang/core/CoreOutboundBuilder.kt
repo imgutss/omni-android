@@ -326,7 +326,7 @@ object CoreOutboundBuilder {
         val outboundBean = createInitOutbound(EConfigType.SOCKS)
         outboundBean?.settings?.let { settings ->
             settings.address = AppConfig.LOOPBACK
-            settings.port = DnsttCore.of(profileItem).port
+            settings.port = DnsttCoreManager.coreOf(profileItem).port
         }
         return outboundBean
     }

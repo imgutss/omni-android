@@ -1080,10 +1080,11 @@ class AetherCoreManagerTest {
         assertTrue(AetherCoreManager.readyNeedsWord(listOf("--psiphon-only", "--bind", "127.0.0.1:10819")))
         // Around the tunnel the app dials WARP, whose listener comes up only once the tunnel stands.
         assertFalse(AetherCoreManager.readyNeedsWord(listOf("--masque", "--psiphon-reverse")))
-        assertFalse(AetherCoreManager.readyNeedsWord(listOf("--wg", "--tor")))
+        assertTrue(AetherCoreManager.readyNeedsWord(listOf("--wg", "--tor", "--tor-bind", "127.0.0.1:10819")))
         assertFalse(AetherCoreManager.readyNeedsWord(listOf("--wg")))
-        // Tor alone runs no Psiphon, whatever Psiphon is told; Psiphon alone does say it.
-        assertFalse(AetherCoreManager.readyNeedsWord(listOf("--tor-only", "--psiphon")))
+        // Tor alone and Tor inside the tunnel must prove bootstrap; Tor around it is read on WARP.
+        assertTrue(AetherCoreManager.readyNeedsWord(listOf("--tor-only", "--psiphon")))
+        assertFalse(AetherCoreManager.readyNeedsWord(listOf("--wg", "--tor-reverse")))
         assertTrue(AetherCoreManager.readyNeedsWord(listOf("--psiphon-only", "--tor")))
 
         assertTrue(AetherCoreManager.isReadyWord("[2026-09-24T10:00:00.000Z INFO  aether] [+] psiphon is ready; 127.0.0.1:10819 leaves through psiphon, carried by the tunnel"))
@@ -1097,6 +1098,19 @@ class AetherCoreManagerTest {
         assertTrue(AetherCoreManager.showsInfo(listOf("--psiphon", "--verbose")))
         assertFalse(AetherCoreManager.showsInfo(listOf("--psiphon", "--log-level", "warn")))
         assertFalse(AetherCoreManager.showsInfo(listOf("--psiphon", "--log-level", "error")))
+    }
+
+    @Test
+    fun torReadinessIsScopedToTheListenerTheSessionDials() {
+        val torOnly = listOf("--tor-only", "--bind", "127.0.0.1:10819")
+        val torChain = listOf("--wg", "--tor", "--tor-bind", "127.0.0.1:10819")
+        val torReverse = listOf("--wg", "--tor-reverse", "--bind", "127.0.0.1:10819")
+        val ready = "[2026-11-01T10:00:00.000Z INFO  aether] [+] tor is ready; 127.0.0.1:10819 leaves through tor"
+        assertTrue(AetherCoreManager.isReadyWord(ready, torOnly))
+        assertTrue(AetherCoreManager.isReadyWord(ready, torChain))
+        assertFalse(AetherCoreManager.isReadyWord(ready, torReverse))
+        assertFalse(AetherCoreManager.isReadyWord("[*] bootstrapping tor with no tunnel underneath it", torOnly))
+        assertFalse(AetherCoreManager.isReadyWord(ready, listOf("--wg")))
     }
 
     @Test

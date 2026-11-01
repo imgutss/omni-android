@@ -203,7 +203,8 @@ object CoreServiceManager {
 
         LogUtil.i(AppConfig.TAG, "StartCore-Manager: Starting core loop for ${config.remarks}")
         val result = CoreConfigManager.getV2rayConfig(service, guid)
-        LogUtil.d(AppConfig.TAG, result.content)
+        var content = result.content
+        LogUtil.d(AppConfig.TAG, content)
         if (!result.status) {
             if (result.localizedError) throw StartFailure(result.errorMessage)
             error(result.errorMessage.ifBlank { "Failed to get V2Ray config" })
@@ -250,14 +251,9 @@ object CoreServiceManager {
                 throw StartFailure(service.getString(R.string.masterdns_port_taken, masterDns.port))
             }
         }
-        val dnstt = result.dnsttCore
-        if (dnstt != null) {
-            if (!DnsttCoreManager.isSupported(service, dnstt.engine)) {
-                throw StartFailure(service.getString(R.string.dnstt_unsupported_abi))
-            }
-            if (AetherDependency.inboundListensOn(result.content, dnstt.port)) {
-                throw StartFailure(service.getString(R.string.dnstt_port_taken, dnstt.port))
-            }
+        var dnstt = result.dnsttCore
+        if (dnstt != null && !DnsttCoreManager.isSupported(service, dnstt.engine)) {
+            throw StartFailure(service.getString(R.string.dnstt_unsupported_abi))
         }
         // A reload still has the previous session's cores; they end before Xray starts again. New
         // external cores start once Xray listens, see launchNativeCore.
@@ -271,12 +267,23 @@ object CoreServiceManager {
             checkMasterDnsPort(service, guid, masterDns, isReload)
         }
         if (dnstt != null) {
+            val reservedPorts = buildSet {
+                aether?.ports?.let(::addAll)
+                masterDns?.port?.let(::add)
+            }
+            val prepared = DnsttCoreManager.prepareSession(service, dnstt, content, reservedPorts)
+                ?: throw StartFailure(service.getString(R.string.dnstt_port_taken, dnstt.port))
+            dnstt = prepared.core
+            content = prepared.content
+            if (AetherDependency.inboundListensOn(content, dnstt.port)) {
+                throw StartFailure(service.getString(R.string.dnstt_port_taken, dnstt.port))
+            }
             checkDnsttPort(service, guid, dnstt, isReload)
         }
         if ((aether != null || masterDns != null || dnstt != null) && !goesOn()) return false
 
         try {
-            launchNativeCore(service, guid, config, aether, masterDns, dnstt, result.content, vpnInterface, isReload)
+            launchNativeCore(service, guid, config, aether, masterDns, dnstt, content, vpnInterface, isReload)
         } catch (e: Exception) {
             // Setup failed after this attempt spawned an external process; release both kinds.
             AetherCoreManager.stop()

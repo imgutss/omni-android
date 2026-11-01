@@ -1,6 +1,10 @@
 package com.v2ray.ang.fmt
 
+import com.v2ray.ang.core.AetherCore
+import com.v2ray.ang.core.AetherCoreManager
 import com.v2ray.ang.core.DnsttCore
+import com.v2ray.ang.enums.AetherTor
+import com.v2ray.ang.enums.AetherTorBridges
 import com.v2ray.ang.enums.EConfigType
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -201,6 +205,78 @@ class SlipNetFmtTest {
         assertEquals(passphrase, profile?.dnsttSshKeyPassphrase)
         assertEquals("key", profile?.dnsttSshAuthType)
         assertEquals(2222, profile?.dnsttSshPort)
+    }
+
+    @Test
+    fun originalSnowflakeRecordImportsCustomObfs4VerbatimIntoTheRealTorCore() {
+        val bridge = "obfs4 192.0.2.55:38114 316E643333645F6D79216558614D3931657A5F5F cert=test-cert iat-mode=0"
+        val fields = fixture("snowflake").also {
+            it[2] = "Original Snowflake"
+            it[3] = ""
+            it[4] = ""
+            it[11] = ""
+            it[26] = Base64.getEncoder().encodeToString(bridge.toByteArray(StandardCharsets.UTF_8))
+        }
+        val profile = SlipNetFmt.parse(uri(fields)) ?: error("Snowflake profile should import")
+        assertEquals(EConfigType.AETHER, profile.configType)
+        assertEquals(AetherTor.ONLY.type, profile.aetherTor)
+        assertEquals(AetherTorBridges.OWN.type, profile.aetherTorBridges)
+        assertEquals(bridge, profile.aetherTorBridgeLines)
+        val arguments = AetherCore.of(profile).arguments
+        assertTrue("--tor-only" in arguments)
+        assertTrue(arguments.windowed(2).any { it[0] == "--tor-bridge" && it[1] == bridge })
+        assertFalse("--protocol" in arguments)
+        assertTrue(AetherCoreManager.readyNeedsWord(arguments))
+    }
+
+    @Test
+    fun blankSnowflakeUsesPinnedSnowflakeBridgesAndDirectUsesNoBridges() {
+        val blank = fixture("snowflake").also {
+            it[3] = ""
+            it[4] = ""
+            it[11] = ""
+            it[26] = ""
+        }
+        val profile = SlipNetFmt.parse(uri(blank)) ?: error("Blank Snowflake profile should import")
+        assertEquals(AetherTorBridges.OWN.type, profile.aetherTorBridges)
+        assertEquals(1, AetherFmt.bridgeLines(profile.aetherTorBridgeLines).size)
+        assertTrue(AetherFmt.bridgeLines(profile.aetherTorBridgeLines).all { it.startsWith("snowflake ") })
+        assertTrue(profile.aetherTorBridgeLines.orEmpty().contains("fronts=www.cdn77.com"))
+        assertFalse(profile.aetherTorBridgeLines.orEmpty().contains("ampcache="))
+
+        val direct = SlipNetFmt.parse(uri(blank.also {
+            it[26] = Base64.getEncoder().encodeToString("DIRECT".toByteArray(StandardCharsets.UTF_8))
+        })) ?: error("Direct Tor profile should import")
+        assertEquals(AetherTorBridges.NEVER.type, direct.aetherTorBridges)
+        assertNull(direct.aetherTorBridgeLines)
+    }
+
+    @Test
+    fun ampAndSmartSnowflakeModesKeepTheirRealNativeBehavior() {
+        val ampFields = fixture("snowflake").also {
+            it[3] = ""
+            it[4] = ""
+            it[11] = ""
+            it[26] = Base64.getEncoder().encodeToString("SNOWFLAKE_AMP".toByteArray(StandardCharsets.UTF_8))
+        }
+        val amp = SlipNetFmt.parse(uri(ampFields)) ?: error("AMP Snowflake should import")
+        assertEquals(AetherTorBridges.OWN.type, amp.aetherTorBridges)
+        assertTrue(amp.aetherTorBridgeLines.orEmpty().contains("ampcache=https://cdn.ampproject.org/"))
+        assertTrue(amp.aetherTorBridgeLines.orEmpty().contains("url=https://snowflake-broker.torproject.net/"))
+        assertTrue(AetherCore.of(amp).arguments.windowed(2).any {
+            it[0] == "--tor-bridge" && it[1].contains("ampcache=")
+        })
+
+        val smartFields = fixture("snowflake").also {
+            it[3] = ""
+            it[4] = ""
+            it[11] = ""
+            it[26] = Base64.getEncoder().encodeToString("SMART".toByteArray(StandardCharsets.UTF_8))
+        }
+        val smart = SlipNetFmt.parse(uri(smartFields)) ?: error("Smart Snowflake should import")
+        assertEquals(AetherTorBridges.AUTO.type, smart.aetherTorBridges)
+        assertNull(smart.aetherTorBridgeLines)
+        assertTrue("--tor-only" in AetherCore.of(smart).arguments)
     }
 
     @Test

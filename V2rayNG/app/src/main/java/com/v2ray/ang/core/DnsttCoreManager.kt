@@ -3,9 +3,14 @@ package com.v2ray.ang.core
 import android.content.Context
 import android.system.Os
 import android.system.OsConstants
+import com.google.gson.JsonParser
 import com.v2ray.ang.AppConfig
+import com.v2ray.ang.dto.entities.ProfileItem
 import com.v2ray.ang.fmt.DnsttFmt
+import com.v2ray.ang.handler.MmkvManager
+import com.v2ray.ang.util.JsonUtil
 import com.v2ray.ang.util.LogUtil
+import com.v2ray.ang.util.Utils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -16,6 +21,7 @@ import java.net.ServerSocket
 import java.net.Socket
 import java.util.UUID
 import java.util.concurrent.Callable
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.FutureTask
 import java.util.concurrent.TimeUnit
@@ -46,6 +52,36 @@ object DnsttCoreManager {
     val isRunning: Boolean get() = session != null
     val currentPort: Int? get() = session?.core?.port
     val currentKey: String? get() = session?.core?.key
+
+    /**
+     * A port chosen after another application was found on the default listener. The override is
+     * keyed by the profile's default core identity, so the Xray outbound and the native process
+     * continue to agree on reloads and delay tests instead of each picking a different port.
+     */
+    private val portOverrides = ConcurrentHashMap<String, Int>()
+    private const val PORT_OVERRIDE_PREFIX = "dnstt.runtime.port."
+
+    internal fun coreOf(profile: ProfileItem): DnsttCore {
+        val base = DnsttCore.of(profile)
+        val override = portOverrides[base.key] ?: readSharedOverride(base.key) ?: return base
+        portOverrides[base.key] = override
+        return DnsttCore.of(profile, override)
+    }
+
+    /** MMKV is multi-process; a test in the UI must see the daemon's selected loopback port. */
+    private fun readSharedOverride(key: String): Int? = runCatching {
+        MmkvManager.decodeSettingsInt(PORT_OVERRIDE_PREFIX + key, 0)
+            .takeIf { it in 1024..65534 }
+    }.getOrNull()
+
+    private fun rememberOverride(key: String, port: Int) {
+        portOverrides[key] = port
+        // Keep the running session usable if storage is temporarily unavailable; the next process
+        // can still recover by checking ownership, and no credential or profile data is written here.
+        runCatching { MmkvManager.encodeSettings(PORT_OVERRIDE_PREFIX + key, port) }
+    }
+
+    internal data class PreparedSession(val core: DnsttCore, val content: String)
 
     internal data class LiveProcess(val pid: Int, val port: Int, val key: String?)
 
@@ -121,6 +157,91 @@ object DnsttCoreManager {
         }
     } catch (_: Exception) {
         false
+    }
+
+    /**
+     * Reclaims our orphaned process before looking at the port, then keeps the default when it is
+     * usable. If another app owns it, a free alternate is chosen and the one matching Xray SOCKS
+     * outbound is changed with it. Nothing is ever dialed on a listener whose ownership is unknown.
+     */
+    internal fun prepareSession(
+        context: Context,
+        core: DnsttCore,
+        content: String,
+        reservedPorts: Set<Int> = emptySet(),
+    ): PreparedSession? {
+        val appContext = context.applicationContext
+        val task = FutureTask(Callable<PreparedSession?> {
+            reapStale(appContext)
+            val ports = if (core.ssh == null) listOf(core.port) else listOf(core.port, core.tunnelPort)
+            if (ports.all { available(it, content, reservedPorts) }) {
+                return@Callable PreparedSession(core, content)
+            }
+            val replacement = findReplacement(core, content, reservedPorts) ?: return@Callable null
+            val rewritten = withDnsttPort(content, core.port, replacement) ?: return@Callable null
+            val rebound = core.copy(port = replacement)
+            rememberOverride(core.copy(port = DnsttCore.DEFAULT_SOCKS_PORT).key, replacement)
+            LogUtil.w(AppConfig.TAG, "DNSTT: default listener unavailable; using app-owned loopback port $replacement")
+            PreparedSession(rebound, rewritten)
+        })
+        lifecycle.execute(task)
+        return try {
+            task.get(PORT_CHECK_WAIT_MS + EXIT_WAIT_MS * 3, TimeUnit.MILLISECONDS)
+        } catch (e: Exception) {
+            task.cancel(true)
+            LogUtil.w(AppConfig.TAG, "DNSTT: session preflight did not complete", e)
+            null
+        }
+    }
+
+    private fun available(port: Int, content: String, reservedPorts: Set<Int>): Boolean =
+        port !in reservedPorts && !AetherDependency.inboundListensOn(content, port) && portFree(port)
+
+    private fun findReplacement(core: DnsttCore, content: String, reservedPorts: Set<Int>): Int? {
+        repeat(64) {
+            val candidate = runCatching { Utils.findRandomFreePort() }.getOrNull() ?: return@repeat
+            if (candidate !in 1024..65534 || candidate == core.port || candidate == core.tunnelPort) return@repeat
+            val ports = if (core.ssh == null) listOf(candidate) else listOf(candidate, candidate + 1)
+            if (ports.all { available(it, content, reservedPorts) }) return candidate
+        }
+        return null
+    }
+
+    /** Rewrites exactly one loopback DNSTT SOCKS outbound; null when the JSON is ambiguous. */
+    internal fun withDnsttPort(content: String, oldPort: Int, newPort: Int): String? = try {
+        val root = JsonParser.parseString(content).takeIf { it.isJsonObject }?.asJsonObject ?: return null
+        val outbounds = root.get("outbounds")?.takeIf { it.isJsonArray }?.asJsonArray ?: return null
+        val matches = outbounds.mapNotNull { element ->
+            val outbound = element.takeIf { it.isJsonObject }?.asJsonObject ?: return@mapNotNull null
+            if (outbound.get("protocol")?.asString != "socks") return@mapNotNull null
+            val settings = outbound.get("settings")?.takeIf { it.isJsonObject }?.asJsonObject ?: return@mapNotNull null
+            if (settings.get("address")?.asString != AppConfig.LOOPBACK || settings.get("port")?.asInt != oldPort) {
+                return@mapNotNull null
+            }
+            settings
+        }
+        if (matches.size != 1) return null
+        matches.single().addProperty("port", newPort)
+        JsonUtil.toJson(root)
+    } catch (_: Exception) {
+        null
+    }
+
+    /** Runs stale-process cleanup for a delay test before its ownership check. */
+    internal fun reapStaleProcesses(context: Context): Boolean {
+        val task = FutureTask(Callable {
+            reapStale(context.applicationContext)
+            Unit
+        })
+        lifecycle.execute(task)
+        return try {
+            task.get(PORT_CHECK_WAIT_MS + EXIT_WAIT_MS * 3, TimeUnit.MILLISECONDS)
+            true
+        } catch (e: Exception) {
+            task.cancel(true)
+            LogUtil.w(AppConfig.TAG, "DNSTT: stale-process cleanup did not complete", e)
+            false
+        }
     }
 
     @Synchronized
@@ -360,7 +481,11 @@ object DnsttCoreManager {
         stale.forEach { pid -> runCatching { android.os.Process.sendSignal(pid, OsConstants.SIGTERM) } }
         if (stale.isEmpty()) return
         if (awaitUntil(EXIT_WAIT_MS) { stale.none { File("/proc/$it").exists() } }) return
-        stale.filter { File("/proc/$it").exists() }.forEach { pid -> runCatching { android.os.Process.killProcess(pid) } }
+        val killed = stale.filter { File("/proc/$it").exists() }
+        killed.forEach { pid -> runCatching { android.os.Process.killProcess(pid) } }
+        if (killed.isNotEmpty()) {
+            awaitUntil(EXIT_WAIT_MS) { killed.none { File("/proc/$it").exists() } }
+        }
     }
 
     internal class Session(

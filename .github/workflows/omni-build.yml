@@ -272,7 +272,7 @@ jobs:
         # build before anything is assembled or signed.
         ./gradlew :app:testPlaystoreDebugUnitTest
         ./gradlew licenseFdroidReleaseReport
-        ./gradlew assemblePlaystoreRelease -PpattngVersion="${{ inputs.release_tag || '0.8.2' }}" -Pandroid.injected.signing.store.file=${{ steps.android_keystore.outputs.filePath }} -Pandroid.injected.signing.store.password=${{ secrets.OMNI_KEYSTORE_PASSWORD }} -Pandroid.injected.signing.key.alias=${{ secrets.OMNI_KEY_ALIAS }} -Pandroid.injected.signing.key.password=${{ secrets.OMNI_KEY_PASSWORD }}
+        ./gradlew assemblePlaystoreRelease -PpattngVersion="${{ inputs.release_tag || '0.8.3' }}" -Pandroid.injected.signing.store.file=${{ steps.android_keystore.outputs.filePath }} -Pandroid.injected.signing.store.password=${{ secrets.OMNI_KEYSTORE_PASSWORD }} -Pandroid.injected.signing.key.alias=${{ secrets.OMNI_KEY_ALIAS }} -Pandroid.injected.signing.key.password=${{ secrets.OMNI_KEY_PASSWORD }}
     
     - name: Check the native libraries in the APKs
       run: |

@@ -31,7 +31,7 @@ sealed interface DnsttDependency {
             }
             val normalized = occurrences.single().copy()
             val problem = DnsttFmt.normalize(normalized)
-            return if (problem != null) Invalid(problem) else Single(DnsttCore.of(normalized))
+            return if (problem != null) Invalid(problem) else Single(DnsttCoreManager.coreOf(normalized))
         }
     }
 }
