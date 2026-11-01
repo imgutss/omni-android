@@ -43,8 +43,15 @@ func newMixedTunnel(options clientOptions, endpoints []string, flags []bool) (*m
 	if len(endpoints) > maxMixedResolvers {
 		return nil, fmt.Errorf("mixed tunnel supports at most %d resolvers", maxMixedResolvers)
 	}
-	if len(endpoints) < 2 || len(endpoints) != len(flags) || !hasMixedAuthority(flags) {
-		return nil, fmt.Errorf("mixed tunnel requires matching, non-uniform resolver flags")
+	// A raw SSH relay also uses this composite for one resolver or a
+	// uniform pool: the underlying mobile listener is SOCKS5-only, while
+	// the app-facing raw listener must preserve the SSH identification bytes.
+	if options.rawTCP && len(flags) == 0 {
+		flags = make([]bool, len(endpoints))
+	}
+	if len(endpoints) < 1 || len(endpoints) != len(flags) ||
+		(!options.rawTCP && !hasMixedAuthority(flags)) {
+		return nil, fmt.Errorf("composite tunnel requires matching resolver flags (and a mixed pool unless raw TCP is enabled)")
 	}
 	host, _, err := net.SplitHostPort(options.listenAddr)
 	if err != nil {

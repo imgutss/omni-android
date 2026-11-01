@@ -143,7 +143,14 @@ func main() {
 	mobile.SetFDControlUnixSocket(protectAddress)
 
 	var process tunnel
-	if mixed {
+	if mixed || rawTCP {
+		// The mobile client's own listener always speaks SOCKS5. SSH needs
+		// the raw DNSTT byte stream instead, so even a single-resolver profile
+		// must use the composite's raw relay rather than silently ignoring
+		// -raw-tcp on the ordinary client path.
+		if rawTCP && len(authority) == 0 {
+			authority = make([]bool, resolverCount(dnsAddr))
+		}
 		process, err = newMixedTunnel(options, strings.Split(dnsAddr, ","), authority)
 	} else {
 		process, err = options.newClient(dnsAddr, options.listenAddr, options.authoritative)

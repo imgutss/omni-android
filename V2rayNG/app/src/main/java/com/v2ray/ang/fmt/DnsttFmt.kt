@@ -185,6 +185,9 @@ object DnsttFmt : FmtBase() {
         }
 
         val sshEnabled = config.dnsttSshEnabled == true
+        // The official client exposes SOCKS5, not the raw TCP stream that
+        // JSch needs. Never let the editor save that incompatible pairing.
+        if (sshEnabled && engine != ENGINE_NOIZDNS) return Problem.TRANSPORT_INVALID
         if (sshEnabled) {
             val sshUsername = config.dnsttSshUsername?.trim().orEmpty()
             val sshPassword = config.dnsttSshPassword.orEmpty()

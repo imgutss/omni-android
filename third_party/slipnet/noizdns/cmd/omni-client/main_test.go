@@ -3,6 +3,7 @@ package main
 import (
 	"io"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -164,6 +165,22 @@ func TestMixedRawTCPPreservesSSHBytes(t *testing.T) {
 	case <-done:
 	case <-time.After(5 * time.Second):
 		t.Fatal("raw relay did not stop after the client closed")
+	}
+}
+
+func TestRawTCPCompositeAcceptsSingleResolver(t *testing.T) {
+	tunnel, err := newMixedTunnel(
+		clientOptions{
+			domain: "t.example.com", publicKey: strings.Repeat("00", 32),
+			listenAddr: "127.0.0.1:0", rawTCP: true,
+		},
+		[]string{"127.0.0.1:53"}, nil,
+	)
+	if err != nil {
+		t.Fatalf("single-resolver raw TCP composite was rejected: %v", err)
+	}
+	if len(tunnel.clients) != 1 || len(tunnel.addresses) != 1 {
+		t.Fatalf("raw TCP composite sizes = %d clients, %d addresses", len(tunnel.clients), len(tunnel.addresses))
 	}
 }
 

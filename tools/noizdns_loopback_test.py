@@ -8,6 +8,7 @@ NOIZ = bool(os.environ.get('NOIZ'))
 NONAUTH = bool(os.environ.get('NONAUTH'))
 MIXED = bool(os.environ.get('MIXED'))
 STEALTH = bool(os.environ.get('STEALTH'))
+RAW = bool(os.environ.get('RAW'))
 KEY = os.environ.get('OMNI_LOOP_KEY', '/tmp/omni-loop.key')
 PUB = open(os.environ.get('OMNI_LOOP_PUB', '/tmp/omni-loop.pub')).read().strip()
 LOG_DIR = os.environ.get('OMNI_LOOP_LOG_DIR', '/tmp')
@@ -125,7 +126,7 @@ def wait_port(port, timeout=45):
         try:
             with socket.create_connection(('127.0.0.1', port), timeout=1): return
         except OSError: time.sleep(.1)
-    raise RuntimeError('local SOCKS listener did not open')
+    raise RuntimeError('local tunnel listener did not open')
 
 def main():
     echo_port, socks_port, dns_port, local_port = [free_port() for _ in range(3)] + [free_port()]
@@ -136,12 +137,13 @@ def main():
         dns_proxy(resolver_port, dns_port)
     if MIXED:
         dns_proxy(resolver_port2, dns_port)
-    tag = ('noiz' if NOIZ else 'dnstt') + ('-mixed' if MIXED else ('-nonauth' if NONAUTH else '-authoritative')) + ('-stealth' if STEALTH else '')
+    tag = ('noiz' if NOIZ else 'dnstt') + ('-mixed' if MIXED else ('-nonauth' if NONAUTH else '-authoritative')) + ('-stealth' if STEALTH else '') + ('-raw' if RAW else '')
     server_log = open(os.path.join(LOG_DIR, tag + '-server.log'), 'w')
     client_log = open(os.path.join(LOG_DIR, tag + '-client.log'), 'w')
-    server_args = [SERVER, '-udp', f'127.0.0.1:{dns_port}', '-privkey-file', KEY, 't.example.com', f'127.0.0.1:{socks_port}']
+    upstream_port = echo_port if RAW else socks_port
+    server_args = [SERVER, '-udp', f'127.0.0.1:{dns_port}', '-privkey-file', KEY, 't.example.com', f'127.0.0.1:{upstream_port}']
     if NOIZ:
-        server_args = [SERVER, '-privkey-file', KEY, 't.example.com', f'127.0.0.1:{dns_port}', f'127.0.0.1:{socks_port}']
+        server_args = [SERVER, '-privkey-file', KEY, 't.example.com', f'127.0.0.1:{dns_port}', f'127.0.0.1:{upstream_port}']
     server = subprocess.Popen(server_args, stdout=server_log, stderr=server_log)
     children.append(server)
     time.sleep(.3)
@@ -156,27 +158,40 @@ def main():
         client_args.append('-noiz')
     if STEALTH:
         client_args.append('-stealth')
+    if RAW:
+        client_args.append('-raw-tcp')
     client_args += ['t.example.com', f'127.0.0.1:{local_port}']
     client = subprocess.Popen(client_args, stdout=client_log, stderr=client_log)
     children.append(client)
     wait_port(local_port)
     with socket.create_connection(('127.0.0.1', local_port), timeout=20) as c:
         c.settimeout(30)
-        c.sendall(b'\x05\x01\x00')
-        assert readn(c, 2) == b'\x05\x00', 'SOCKS negotiation failed'
-        c.sendall(b'\x05\x01\x00\x01' + socket.inet_aton('127.0.0.1') + echo_port.to_bytes(2, 'big'))
-        reply = readn(c, 4)
-        assert reply[:2] == b'\x05\x00', f'SOCKS connect failed: {reply!r}'
-        atyp = reply[3]
-        if atyp == 1: readn(c, 6)
-        elif atyp == 3: readn(c, readn(c, 1)[0] + 2)
-        elif atyp == 4: readn(c, 18)
-        payload = b'omni-real-noizdns-loopback-' + os.urandom(16)
-        c.sendall(payload)
-        got = readn(c, len(payload))
-        assert got == payload, 'echo payload mismatch'
-    print('PASS: real UDP DNSTT transport + Noise/KCP/smux + local SOCKS5 + remote SOCKS5 + TCP echo')
-    print('ports:', {'dns': dns_port, 'local_socks': local_port, 'upstream_socks': socks_port, 'echo': echo_port})
+        if RAW:
+            # This is deliberately not a SOCKS greeting: the raw path must
+            # carry the SSH client identification and payload unchanged.
+            payload = b'SSH-2.0-omni-raw\r\n' + os.urandom(16)
+            c.sendall(payload)
+            got = readn(c, len(payload))
+            assert got == payload, 'raw SSH byte-stream mismatch'
+        else:
+            c.sendall(b'\x05\x01\x00')
+            assert readn(c, 2) == b'\x05\x00', 'SOCKS negotiation failed'
+            c.sendall(b'\x05\x01\x00\x01' + socket.inet_aton('127.0.0.1') + echo_port.to_bytes(2, 'big'))
+            reply = readn(c, 4)
+            assert reply[:2] == b'\x05\x00', f'SOCKS connect failed: {reply!r}'
+            atyp = reply[3]
+            if atyp == 1: readn(c, 6)
+            elif atyp == 3: readn(c, readn(c, 1)[0] + 2)
+            elif atyp == 4: readn(c, 18)
+            payload = b'omni-real-noizdns-loopback-' + os.urandom(16)
+            c.sendall(payload)
+            got = readn(c, len(payload))
+            assert got == payload, 'echo payload mismatch'
+    if RAW:
+        print('PASS: real UDP DNSTT transport + Noise/KCP/smux + raw TCP SSH byte stream + TCP echo')
+    else:
+        print('PASS: real UDP DNSTT transport + Noise/KCP/smux + local SOCKS5 + remote SOCKS5 + TCP echo')
+    print('ports:', {'dns': dns_port, 'local_listener': local_port, 'upstream_socks': socks_port, 'echo': echo_port})
 
 try:
     main()

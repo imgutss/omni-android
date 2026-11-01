@@ -83,6 +83,12 @@ class DnsttFmtTest {
         }
         assertEquals(DnsttFmt.Problem.TRANSPORT_INVALID, DnsttFmt.normalize(officialWithNoizTuning))
 
+        val officialWithSsh = profile("udp", "1.1.1.1:53").apply {
+            dnsttSshEnabled = true
+            dnsttSshUsername = "ssh-user"
+        }
+        assertEquals(DnsttFmt.Problem.TRANSPORT_INVALID, DnsttFmt.normalize(officialWithSsh))
+
         assertNull(DnsttFmt.parse("dnstt://?transport=doh&resolver=http://dns.example/dns-query&domain=t.example.com&pubkey=$key"))
     }
 
