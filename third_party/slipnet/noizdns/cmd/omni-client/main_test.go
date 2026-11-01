@@ -120,6 +120,53 @@ func TestMixedSOCKSNegotiation(t *testing.T) {
 	}
 }
 
+// TestMixedRawTCPPreservesSSHBytes covers the chained DNSTT+SSH path. The
+// composite must not perform a SOCKS greeting before JSch writes its SSH ID.
+func TestMixedRawTCPPreservesSSHBytes(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	go func() {
+		connection, err := listener.Accept()
+		if err != nil {
+			return
+		}
+		defer connection.Close()
+		_, _ = io.Copy(connection, connection)
+	}()
+	mixed := &mixedTunnel{
+		options:   clientOptions{resolverMode: "roundrobin", rrSpread: 1, rawTCP: true},
+		clients:   make([]*mobile.DnsttClient, 1),
+		addresses: []string{listener.Addr().String()},
+	}
+	proxySide, clientSide := net.Pipe()
+	done := make(chan struct{})
+	go func() {
+		mixed.handle(proxySide)
+		close(done)
+	}()
+	_ = clientSide.SetDeadline(time.Now().Add(5 * time.Second))
+	payload := []byte("SSH-2.0-omni-test\\r\\n")
+	if _, err := clientSide.Write(payload); err != nil {
+		t.Fatal(err)
+	}
+	got := make([]byte, len(payload))
+	if _, err := io.ReadFull(clientSide, got); err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(payload) {
+		t.Fatalf("raw relay = %q, want %q", got, payload)
+	}
+	clientSide.Close()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("raw relay did not stop after the client closed")
+	}
+}
+
 func TestMixedResolverLimitFailsBeforeAllocatingTunnels(t *testing.T) {
 	endpoints := make([]string, maxMixedResolvers+1)
 	flags := make([]bool, maxMixedResolvers+1)

@@ -149,20 +149,84 @@ class ServerDnsttActivity : BaseServerActivity() {
                     keyboardType = KeyboardType.Number,
                     supportingText = stringResource(R.string.dnstt_max_payload_support),
                 )
+                if (!uiState.dnsttSshEnabled) {
+                    FormTextField(
+                        label = stringResource(R.string.dnstt_lab_socks_username),
+                        value = uiState.dnsttSocksUsername,
+                        onValueChange = { uiState.dnsttSocksUsername = it },
+                    )
+                    FormTextField(
+                        label = stringResource(R.string.dnstt_lab_socks_password),
+                        value = uiState.dnsttSocksPassword,
+                        onValueChange = { uiState.dnsttSocksPassword = it },
+                    )
+                }
+            }
+            SettingsSwitchItem(
+                title = stringResource(R.string.dnstt_lab_ssh),
+                summary = stringResource(R.string.dnstt_ssh_support),
+                checked = uiState.dnsttSshEnabled,
+                onCheckedChange = {
+                    uiState.dnsttSshEnabled = it
+                    uiState.isDnsttSshError = false
+                },
+            )
+            if (uiState.dnsttSshEnabled) {
                 FormTextField(
-                    label = stringResource(R.string.dnstt_lab_socks_username),
-                    value = uiState.dnsttSocksUsername,
-                    onValueChange = { uiState.dnsttSocksUsername = it },
+                    label = stringResource(R.string.dnstt_lab_ssh_username),
+                    value = uiState.dnsttSshUsername,
+                    onValueChange = {
+                        uiState.dnsttSshUsername = it
+                        uiState.isDnsttSshError = false
+                    },
+                    isError = uiState.isDnsttSshError,
+                )
+                FormDropdownField(
+                    label = stringResource(R.string.dnstt_lab_ssh_auth_type),
+                    value = uiState.dnsttSshAuthType,
+                    options = listOf("password", "key"),
+                    onValueChange = { uiState.dnsttSshAuthType = it },
+                )
+                if (uiState.dnsttSshAuthType == "key") {
+                    FormTextField(
+                        label = stringResource(R.string.dnstt_lab_ssh_private_key),
+                        value = uiState.dnsttSshPrivateKey,
+                        onValueChange = { uiState.dnsttSshPrivateKey = it },
+                        maxLines = 10,
+                        isError = uiState.isDnsttSshError,
+                    )
+                    FormTextField(
+                        label = stringResource(R.string.dnstt_lab_ssh_key_passphrase),
+                        value = uiState.dnsttSshKeyPassphrase,
+                        onValueChange = { uiState.dnsttSshKeyPassphrase = it },
+                    )
+                } else {
+                    FormTextField(
+                        label = stringResource(R.string.dnstt_lab_ssh_password),
+                        value = uiState.dnsttSshPassword,
+                        onValueChange = { uiState.dnsttSshPassword = it },
+                    )
+                }
+                FormTextField(
+                    label = stringResource(R.string.dnstt_lab_ssh_host),
+                    value = uiState.dnsttSshHost,
+                    onValueChange = { uiState.dnsttSshHost = it },
+                    supportingText = stringResource(R.string.dnstt_ssh_host_support),
+                    isError = uiState.isDnsttSshError,
                 )
                 FormTextField(
-                    label = stringResource(R.string.dnstt_lab_socks_password),
-                    value = uiState.dnsttSocksPassword,
-                    onValueChange = { uiState.dnsttSocksPassword = it },
+                    label = stringResource(R.string.dnstt_lab_ssh_port),
+                    value = uiState.dnsttSshPort,
+                    onValueChange = { uiState.dnsttSshPort = it },
+                    keyboardType = KeyboardType.Number,
+                    isError = uiState.isDnsttSshError,
                 )
             }
             Text(
                 text = stringResource(
-                    if (uiState.dnsttEngine == DnsttFmt.ENGINE_NOIZDNS) {
+                    if (uiState.dnsttSshEnabled) {
+                        R.string.dnstt_ssh_engine_notice
+                    } else if (uiState.dnsttEngine == DnsttFmt.ENGINE_NOIZDNS) {
                         R.string.dnstt_noiz_engine_notice
                     } else {
                         R.string.dnstt_engine_notice
@@ -187,6 +251,7 @@ class ServerDnsttActivity : BaseServerActivity() {
         state.isDnsttDomainError = problem == DnsttFmt.Problem.DOMAIN_MISSING || problem == DnsttFmt.Problem.DOMAIN_INVALID
         state.isDnsttPublicKeyError = problem == DnsttFmt.Problem.PUBLIC_KEY_MISSING || problem == DnsttFmt.Problem.PUBLIC_KEY_INVALID
         state.isDnsttUtlsError = problem == DnsttFmt.Problem.UTLS_INVALID
+        state.isDnsttSshError = problem == DnsttFmt.Problem.SSH_INVALID
         if (problem != null) {
             toast(
                 when (problem) {
@@ -198,6 +263,7 @@ class ServerDnsttActivity : BaseServerActivity() {
                     DnsttFmt.Problem.PUBLIC_KEY_MISSING -> R.string.dnstt_error_key_missing
                     DnsttFmt.Problem.PUBLIC_KEY_INVALID -> R.string.dnstt_error_key
                     DnsttFmt.Problem.UTLS_INVALID -> R.string.dnstt_error_utls
+                    DnsttFmt.Problem.SSH_INVALID -> R.string.dnstt_error_ssh
                 }
             )
             return false

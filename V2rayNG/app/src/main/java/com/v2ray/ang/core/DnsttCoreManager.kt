@@ -142,6 +142,7 @@ object DnsttCoreManager {
         val current = session ?: return
         current.stopRequested.set(true)
         session = null
+        DnsttSshTunnel.stop(current.core.key)
         lifecycle.execute { finish(current, notifyExit = false) }
     }
 
@@ -165,7 +166,7 @@ object DnsttCoreManager {
                     put(KEY_ENV, target.core.key)
                     put("HOME", directory.absolutePath)
                     put("TMPDIR", target.context.cacheDir.absolutePath)
-                    if (target.core.socksUsername.isNotEmpty()) {
+                    if (target.core.ssh == null && target.core.socksUsername.isNotEmpty()) {
                         put(SOCKS_USER_ENV, target.core.socksUsername)
                         put(SOCKS_PASSWORD_ENV, target.core.socksPassword)
                     }
@@ -182,7 +183,15 @@ object DnsttCoreManager {
                 }
                 finish(target, notifyExit = true)
             }
-            LogUtil.i(AppConfig.TAG, "DNSTT: ${target.core.engine} core started on ${AppConfig.LOOPBACK}:${target.core.port}")
+            if (target.core.ssh != null) {
+                DnsttSshTunnel.start(target.core) { error ->
+                    LogUtil.e(AppConfig.TAG, "DNSTT+SSH: chained session failed", error)
+                    lifecycle.execute {
+                        if (session === target && !target.stopRequested.get()) finish(target, notifyExit = true)
+                    }
+                }
+            }
+            LogUtil.i(AppConfig.TAG, "DNSTT: ${target.core.engine} core started on ${AppConfig.LOOPBACK}:${target.core.tunnelPort}")
             if (session !== target) finish(target, notifyExit = false)
         } catch (e: Exception) {
             LogUtil.e(AppConfig.TAG, "DNSTT: core start failed", e)
@@ -208,6 +217,7 @@ object DnsttCoreManager {
             if (resolverAuthorities.isNotEmpty()) {
                 add("-resolver-authoritative=${resolverAuthorities.joinToString(",") { if (it) "1" else "0" }}")
             }
+            if (core.ssh != null) add("-raw-tcp")
             when (core.transport) {
                 DnsttFmt.Transport.DOH -> add("-doh=$engineResolver")
                 DnsttFmt.Transport.DOT -> add("-dot=$engineResolver")
@@ -229,7 +239,7 @@ object DnsttCoreManager {
         }
         if (protectAddress != null) add("-fd-control-unix-socket=$protectAddress")
         add(core.domain)
-        add("${AppConfig.LOOPBACK}:${core.port}")
+        add("${AppConfig.LOOPBACK}:${core.tunnelPort}")
     }
 
     private fun sessionDirectory(target: Session): File {
@@ -258,7 +268,8 @@ object DnsttCoreManager {
             val current = session ?: return@withTimeoutOrNull false
             val process = current.process
             if (process != null && !isAlive(process)) return@withTimeoutOrNull false
-            if (process != null && withContext(Dispatchers.IO) { answersSocks(current.core.port) }) {
+            val sshReady = current.core.ssh == null || DnsttSshTunnel.isReady(current.core.key)
+            if (process != null && sshReady && withContext(Dispatchers.IO) { answersSocks(current.core.port) }) {
                 return@withTimeoutOrNull true
             }
             delay(READY_POLL_MS)
@@ -291,6 +302,7 @@ object DnsttCoreManager {
             return
         }
         var stopped = true
+        DnsttSshTunnel.stop(target.core.key)
         try {
             stopped = target.process?.let(::endProcess) ?: true
         } catch (e: Exception) {

@@ -946,6 +946,7 @@ object CoreConfigManager {
                 DnsttFmt.Problem.PUBLIC_KEY_MISSING -> context.getString(R.string.dnstt_error_key_missing)
                 DnsttFmt.Problem.PUBLIC_KEY_INVALID -> context.getString(R.string.dnstt_error_key)
                 DnsttFmt.Problem.UTLS_INVALID -> context.getString(R.string.dnstt_error_utls)
+                DnsttFmt.Problem.SSH_INVALID -> context.getString(R.string.dnstt_error_ssh)
             }
         }
         LogUtil.w(AppConfig.TAG, "DNSTT cannot serve this configuration: $dependency, guid=$guid")

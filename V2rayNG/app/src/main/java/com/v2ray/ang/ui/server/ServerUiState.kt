@@ -133,6 +133,15 @@ class ServerUiState(
     dnsttRrSpreadCount: String = "3",
     dnsttSocksUsername: String = "",
     dnsttSocksPassword: String = "",
+    dnsttSshEnabled: Boolean = false,
+    dnsttSshForwardDns: Boolean = false,
+    dnsttSshUsername: String = "",
+    dnsttSshPassword: String = "",
+    dnsttSshHost: String = "127.0.0.1",
+    dnsttSshPort: String = "22",
+    dnsttSshAuthType: String = "password",
+    dnsttSshPrivateKey: String = "",
+    dnsttSshKeyPassphrase: String = "",
 ) {
     var configType by mutableStateOf(configType)
     var remarks by mutableStateOf(remarks)
@@ -245,6 +254,15 @@ class ServerUiState(
     var dnsttRrSpreadCount by mutableStateOf(dnsttRrSpreadCount)
     var dnsttSocksUsername by mutableStateOf(dnsttSocksUsername)
     var dnsttSocksPassword by mutableStateOf(dnsttSocksPassword)
+    var dnsttSshEnabled by mutableStateOf(dnsttSshEnabled)
+    var dnsttSshForwardDns by mutableStateOf(dnsttSshForwardDns)
+    var dnsttSshUsername by mutableStateOf(dnsttSshUsername)
+    var dnsttSshPassword by mutableStateOf(dnsttSshPassword)
+    var dnsttSshHost by mutableStateOf(dnsttSshHost)
+    var dnsttSshPort by mutableStateOf(dnsttSshPort)
+    var dnsttSshAuthType by mutableStateOf(dnsttSshAuthType)
+    var dnsttSshPrivateKey by mutableStateOf(dnsttSshPrivateKey)
+    var dnsttSshKeyPassphrase by mutableStateOf(dnsttSshKeyPassphrase)
 
     /**
      * Whether an Aether setting the editor keeps folded away holds a value of its own, so that the
@@ -283,6 +301,7 @@ class ServerUiState(
     var isDnsttDomainError by mutableStateOf(false)
     var isDnsttPublicKeyError by mutableStateOf(false)
     var isDnsttUtlsError by mutableStateOf(false)
+    var isDnsttSshError by mutableStateOf(false)
 
     /**
      * The profile the editor holds, built on [initialConfig]. An Aether profile's command line counts
@@ -414,6 +433,15 @@ class ServerUiState(
             dnsttRrSpreadCount = if (isDnstt) dnsttRrSpreadCount.toIntOrNull() ?: -1 else null,
             dnsttSocksUsername = if (isDnstt) dnsttSocksUsername.nullIfBlank() else null,
             dnsttSocksPassword = if (isDnstt) dnsttSocksPassword.nullIfBlank() else null,
+            dnsttSshEnabled = if (isDnstt && dnsttSshEnabled) true else null,
+            dnsttSshForwardDns = if (isDnstt && dnsttSshEnabled) dnsttSshForwardDns else null,
+            dnsttSshUsername = if (isDnstt && dnsttSshEnabled) dnsttSshUsername else null,
+            dnsttSshPassword = if (isDnstt && dnsttSshEnabled) dnsttSshPassword else null,
+            dnsttSshHost = if (isDnstt && dnsttSshEnabled) dnsttSshHost else null,
+            dnsttSshPort = if (isDnstt && dnsttSshEnabled) dnsttSshPort.toIntOrNull() ?: -1 else null,
+            dnsttSshAuthType = if (isDnstt && dnsttSshEnabled) dnsttSshAuthType else null,
+            dnsttSshPrivateKey = if (isDnstt && dnsttSshEnabled) dnsttSshPrivateKey else null,
+            dnsttSshKeyPassphrase = if (isDnstt && dnsttSshEnabled) dnsttSshKeyPassphrase else null,
         )
         // A command that says what the settings say is no command of its own: the profile follows the settings.
         val command = aetherCommand.trim()
@@ -535,6 +563,15 @@ class ServerUiState(
                 dnsttRrSpreadCount = (initialConfig.dnsttRrSpreadCount ?: 3).toString(),
                 dnsttSocksUsername = initialConfig.dnsttSocksUsername ?: "",
                 dnsttSocksPassword = initialConfig.dnsttSocksPassword ?: "",
+                dnsttSshEnabled = initialConfig.dnsttSshEnabled == true,
+                dnsttSshForwardDns = initialConfig.dnsttSshForwardDns == true,
+                dnsttSshUsername = initialConfig.dnsttSshUsername ?: "",
+                dnsttSshPassword = initialConfig.dnsttSshPassword ?: "",
+                dnsttSshHost = initialConfig.dnsttSshHost ?: "127.0.0.1",
+                dnsttSshPort = (initialConfig.dnsttSshPort ?: 22).toString(),
+                dnsttSshAuthType = initialConfig.dnsttSshAuthType ?: "password",
+                dnsttSshPrivateKey = initialConfig.dnsttSshPrivateKey ?: "",
+                dnsttSshKeyPassphrase = initialConfig.dnsttSshKeyPassphrase ?: "",
             )
 
         fun from(

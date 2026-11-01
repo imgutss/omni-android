@@ -84,6 +84,24 @@ class DnsttCoreManagerTest {
     }
 
     @Test
+    fun sshChainUsesSeparateRawTunnelAndPublicSocksPorts() {
+        val chained = core.copy(
+            engine = DnsttFmt.ENGINE_NOIZDNS,
+            ssh = DnsttSshConfig(username = "test-user", password = "test-password"),
+        )
+        val arguments = DnsttCoreManager.processArguments(
+            binary = File("/data/app/lib/libnoizdns.so"),
+            core = chained,
+            protectAddress = null,
+        )
+        assertEquals("127.0.0.1:18002", arguments.last())
+        assertTrue(arguments.contains("-raw-tcp"))
+        assertEquals(18_001, chained.port)
+        assertEquals(18_002, chained.tunnelPort)
+        assertFalse(arguments.any { it.contains("test-user") || it.contains("test-password") })
+    }
+
+    @Test
     fun proxyAndRootModesDoNotInventAProtectEndpoint() {
         val arguments = DnsttCoreManager.processArguments(File("/bin/libdnstt.so"), core, null)
         assertFalse(arguments.any { it.startsWith("-fd-control-unix-socket=") })

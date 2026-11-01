@@ -366,16 +366,19 @@ object CoreServiceManager {
     @Throws(Exception::class)
     private fun checkDnsttPort(service: Service, guid: String, core: DnsttCore, isReload: Boolean) {
         val attempt = "${service.javaClass.simpleName} ${if (isReload) "reload" else "start"}"
-        when (val check = DnsttCoreManager.checkSessionPort(core.port)) {
-            DnsttCoreManager.PortCheck.Free -> Unit
-            DnsttCoreManager.PortCheck.Taken -> {
-                LogUtil.w(AppConfig.TAG, "StartCore-Manager: $attempt refused, DNSTT port ${core.port} is taken, guid=$guid")
-                throw StartFailure(service.getString(R.string.dnstt_port_taken, core.port))
-            }
-            is DnsttCoreManager.PortCheck.Unchecked -> {
-                val message = "StartCore-Manager: $attempt could not check the DNSTT port, guid=$guid"
-                check.cause?.let { LogUtil.w(AppConfig.TAG, message, it) } ?: LogUtil.w(AppConfig.TAG, message)
-                throw IllegalStateException("The DNSTT session port could not be checked", check.cause)
+        val ports = if (core.ssh == null) listOf(core.port) else listOf(core.port, core.tunnelPort)
+        ports.forEach { port ->
+            when (val check = DnsttCoreManager.checkSessionPort(port)) {
+                DnsttCoreManager.PortCheck.Free -> Unit
+                DnsttCoreManager.PortCheck.Taken -> {
+                    LogUtil.w(AppConfig.TAG, "StartCore-Manager: $attempt refused, DNSTT port $port is taken, guid=$guid")
+                    throw StartFailure(service.getString(R.string.dnstt_port_taken, port))
+                }
+                is DnsttCoreManager.PortCheck.Unchecked -> {
+                    val message = "StartCore-Manager: $attempt could not check the DNSTT port, guid=$guid"
+                    check.cause?.let { LogUtil.w(AppConfig.TAG, message, it) } ?: LogUtil.w(AppConfig.TAG, message)
+                    throw IllegalStateException("The DNSTT session port could not be checked", check.cause)
+                }
             }
         }
     }
@@ -556,10 +559,11 @@ object CoreServiceManager {
         MessageHelper.sendMsg2UI(service, AppConfig.MSG_STATE_RUNNING, "")
         MessageHelper.sendMsg2UI(service, AppConfig.MSG_STATE_CONNECTING, connecting)
         NotificationManager.setStatusLine(connecting)
+        val startupBudget = if (currentDnstt?.ssh != null) DnsttDelayTester.SSH_STARTUP_BUDGET_MS else AETHER_WARM_UP_MS
         dnsttWarmUpJob = dnsttScope.launch {
             var listening = false
             while (isActive && !listening && DnsttCoreManager.isRunning) {
-                listening = DnsttCoreManager.awaitListening(AETHER_WARM_UP_MS)
+                listening = DnsttCoreManager.awaitListening(startupBudget)
             }
             when (AetherCoreManager.warmUpOutcome(listening, isActive, isRunning())) {
                 AetherCoreManager.WarmUpOutcome.ABANDONED -> Unit

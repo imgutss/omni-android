@@ -29,6 +29,7 @@ type clientOptions struct {
 	utlsDistribution, resolverMode  string
 	protectAddress                  string
 	authoritative, noiz, stealth    bool
+	rawTCP                          bool
 	maxPayload, edns0Size, rrSpread int
 }
 
@@ -63,7 +64,7 @@ func main() {
 	var dohURL, dotAddr, tcpAddr, udpAddr string
 	var publicKey, utlsDistribution, resolverMode, protectAddress string
 	var resolverAuthority string
-	var authoritative, noiz, stealth bool
+	var authoritative, noiz, stealth, rawTCP bool
 	var maxPayload, edns0Size, rrSpread int
 
 	flag.StringVar(&dohURL, "doh", "", "DNS-over-HTTPS resolver URL")
@@ -78,6 +79,7 @@ func main() {
 	flag.BoolVar(&authoritative, "authoritative", false, "authoritative-resolver tuning")
 	flag.BoolVar(&noiz, "noiz", false, "enable NoizDNS mode")
 	flag.BoolVar(&stealth, "stealth", false, "enable NoizDNS stealth mode")
+	flag.BoolVar(&rawTCP, "raw-tcp", false, "expose raw TCP for an SSH layer instead of local SOCKS negotiation")
 	flag.IntVar(&maxPayload, "max-payload", 0, "DNS payload cap; zero uses the default")
 	flag.IntVar(&edns0Size, "edns0-size", 0, "EDNS(0) UDP payload size; zero uses the default")
 	flag.IntVar(&rrSpread, "rr-spread", 3, "round-robin resolver spread")
@@ -121,7 +123,7 @@ func main() {
 		domain: flag.Arg(0), publicKey: publicKey, listenAddr: flag.Arg(1),
 		utlsDistribution: utlsDistribution, resolverMode: resolverMode,
 		protectAddress: protectAddress, authoritative: authoritative,
-		noiz: noiz, stealth: stealth, maxPayload: maxPayload,
+		noiz: noiz, stealth: stealth, rawTCP: rawTCP, maxPayload: maxPayload,
 		edns0Size: edns0Size, rrSpread: rrSpread,
 	}
 	authority, err := parseAuthorityFlags(resolverAuthority, resolverCount(dnsAddr))

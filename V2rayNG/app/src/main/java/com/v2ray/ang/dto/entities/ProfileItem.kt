@@ -209,6 +209,21 @@ data class ProfileItem(
     /** Optional credentials for the remote SOCKS5 service behind the tunnel. */
     var dnsttSocksUsername: String? = null,
     var dnsttSocksPassword: String? = null,
+
+    /** Whether the raw DNSTT tunnel terminates at an SSH server (SlipNet dnstt_ssh). */
+    var dnsttSshEnabled: Boolean? = null,
+
+    /** SlipNet's DNS-through-SSH preference, retained for lossless profile exchange. */
+    var dnsttSshForwardDns: Boolean? = null,
+
+    /** SSH account and authentication used after the DNSTT transport connects. */
+    var dnsttSshUsername: String? = null,
+    var dnsttSshPassword: String? = null,
+    var dnsttSshHost: String? = null,
+    var dnsttSshPort: Int? = null,
+    var dnsttSshAuthType: String? = null,
+    var dnsttSshPrivateKey: String? = null,
+    var dnsttSshKeyPassphrase: String? = null,
 ) {
 
     companion object {

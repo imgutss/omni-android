@@ -153,9 +153,60 @@ class SlipNetFmtTest {
     }
 
     @Test
-    fun sshChainingAndMalformedRecordsAreNotFalselyImported() {
-        assertNull(SlipNetFmt.parse(uri(fixture("dnstt_ssh"))))
+    fun originalDnsttSshLinkImportsWithTheRealChainSettings() {
+        val fields = fixture("dnstt_ssh").also {
+            it[0] = "28"
+            it[14] = "1"
+            it[15] = "test-user"
+            it[16] = "test-password"
+            it[17] = "22"
+            it[18] = "1"
+            it[19] = "127.0.0.1"
+            it[23] = "password"
+        }
+        val profile = SlipNetFmt.parse(uri(fields))
+        assertNotNull(profile)
+        assertTrue(profile?.dnsttSshEnabled == true)
+        assertEquals("test-user", profile?.dnsttSshUsername)
+        assertEquals("test-password", profile?.dnsttSshPassword)
+        assertTrue(profile?.dnsttSshForwardDns == true)
+        assertEquals("127.0.0.1", profile?.dnsttSshHost)
+        assertEquals(22, profile?.dnsttSshPort)
+        val core = DnsttCore.of(profile!!)
+        assertEquals(18_001, core.port)
+        assertEquals(18_002, core.tunnelPort)
+        assertEquals("test-user", core.ssh?.username)
+        assertTrue(core.ssh?.forwardDns == true)
+        val omniUri = EConfigType.DNSTT.protocolScheme + DnsttFmt.toUri(profile)
+        val restored = DnsttFmt.parse(omniUri)
+        assertNotNull(restored)
+        assertEquals(core.ssh, DnsttCore.of(restored!!).ssh)
+    }
+
+    @Test
+    fun sshKeyFieldsAreDecodedFromTheOriginalSlipNetRecord() {
+        val privateKey = "test-private-key"
+        val passphrase = "test-passphrase"
+        val fields = fixture("dnstt_ssh").also {
+            it[14] = "1"
+            it[15] = "key-user"
+            it[17] = "2222"
+            it[23] = "key"
+            it[24] = Base64.getEncoder().encodeToString(privateKey.toByteArray(StandardCharsets.UTF_8))
+            it[25] = Base64.getEncoder().encodeToString(passphrase.toByteArray(StandardCharsets.UTF_8))
+        }
+        val profile = SlipNetFmt.parse(uri(fields))
+        assertNotNull(profile)
+        assertEquals(privateKey, profile?.dnsttSshPrivateKey)
+        assertEquals(passphrase, profile?.dnsttSshKeyPassphrase)
+        assertEquals("key", profile?.dnsttSshAuthType)
+        assertEquals(2222, profile?.dnsttSshPort)
+    }
+
+    @Test
+    fun malformedRecordsAreNotFalselyImported() {
         assertNull(SlipNetFmt.parse(uri(fixture().also { it[14] = "1" })))
+        assertNull(SlipNetFmt.parse(uri(fixture("dnstt_ssh"))))
         assertNull(SlipNetFmt.parse("slipnet://not-base64"))
         assertNull(SlipNetFmt.parse(uri(fixture().also { it[11] = "short" })))
         assertNull(SlipNetFmt.parse(uri(fixture().also { it[4] = "1.1.1.1:53:2" })))

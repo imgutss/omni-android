@@ -159,6 +159,10 @@ func (m *mixedTunnel) untrack(connection net.Conn) {
 }
 
 func (m *mixedTunnel) handle(front net.Conn) {
+	if m.options.rawTCP {
+		m.handleRaw(front)
+		return
+	}
 	greeting, err := readSocksGreeting(front)
 	if err != nil {
 		return
@@ -172,6 +176,36 @@ func (m *mixedTunnel) handle(front net.Conn) {
 
 	// The greeting has already been exchanged. Everything after it is an
 	// ordinary byte stream, including the one CONNECT request and its reply.
+	done := make(chan struct{}, 1)
+	go func() {
+		_, _ = io.Copy(backend, front)
+		_ = backend.Close()
+		done <- struct{}{}
+	}()
+	_, _ = io.Copy(front, backend)
+	_ = front.Close()
+	_ = backend.Close()
+	<-done
+}
+
+// handleRaw selects one independently tuned resolver and relays the SSH byte
+// stream unchanged. A DNSTT+SSH endpoint is not a SOCKS server: negotiating
+// SOCKS here would consume the SSH identification and corrupt the handshake.
+func (m *mixedTunnel) handleRaw(front net.Conn) {
+	var backend net.Conn
+	for _, index := range m.selectBackends() {
+		connection, err := net.DialTimeout("tcp", m.addresses[index], 2*time.Second)
+		if err == nil {
+			backend = connection
+			break
+		}
+	}
+	if backend == nil {
+		return
+	}
+	defer backend.Close()
+	_ = front.SetDeadline(time.Time{})
+	_ = backend.SetDeadline(time.Time{})
 	done := make(chan struct{}, 1)
 	go func() {
 		_, _ = io.Copy(backend, front)

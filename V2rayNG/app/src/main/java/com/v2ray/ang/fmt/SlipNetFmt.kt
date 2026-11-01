@@ -14,14 +14,16 @@ import java.util.Base64
  * prefix used by versions 2–29 and ignores unknown trailing fields, just as
  * SlipNet's forward-compatible importer does.
  *
- * Only protocols with a real Omni engine are returned. In particular, an
- * SSH-chained or otherwise unsupported record is not turned into a seemingly
- * usable profile merely because its Base64 decoded successfully.
+ * Only protocols with a real Omni engine are returned. A dnstt_ssh record is
+ * imported only with its SSH credentials and the real chained lifecycle; an
+ * otherwise unsupported record is never made to look usable just because its
+ * Base64 decoded successfully.
  */
 object SlipNetFmt : FmtBase() {
     private const val SCHEME = "slipnet://"
     private const val MAX_ENCODED_CHARS = 2_000_000
     private const val MODE_DNSTT = "dnstt"
+    private const val MODE_DNSTT_SSH = "dnstt_ssh"
     private const val MODE_NOIZDNS = "sayedns"
 
     /** Parses one original slipnet:// URI, without a conversion step. */
@@ -49,13 +51,14 @@ object SlipNetFmt : FmtBase() {
 
         val mode = fields[1].trim().lowercase()
         val isNoiz = when (mode) {
-            MODE_DNSTT -> false
+            MODE_DNSTT, MODE_DNSTT_SSH -> false
             MODE_NOIZDNS -> true
             else -> return null
         }
-        // SSH chaining is a separate lifecycle, not a DNSTT boolean. Do not
-        // silently import it as an unchained tunnel.
-        if (fields.getOrNull(14) == "1") return null
+        val isSsh = mode == MODE_DNSTT_SSH
+        // A legacy sshEnabled marker without the dedicated tunnel type is not
+        // enough evidence to choose a different lifecycle.
+        if (!isSsh && fields.getOrNull(14) == "1") return null
 
         val name = fields[2].trim()
         val domain = fields[3].trim()
@@ -102,8 +105,19 @@ object SlipNetFmt : FmtBase() {
             it.dnsttResolverMode = fields.getOrNull(60)?.trim()?.lowercase()
                 ?.takeIf { mode -> mode == "fanout" || mode == "roundrobin" } ?: "fanout"
             it.dnsttRrSpreadCount = fields.getOrNull(61)?.toIntOrNull()?.coerceIn(1, 5) ?: 3
-            it.dnsttSocksUsername = fields.getOrNull(12)?.takeIf { value -> value.isNotEmpty() }
-            it.dnsttSocksPassword = fields.getOrNull(13)?.takeIf { value -> value.isNotEmpty() }
+            it.dnsttSocksUsername = if (isSsh) null else fields.getOrNull(12)?.takeIf { value -> value.isNotEmpty() }
+            it.dnsttSocksPassword = if (isSsh) null else fields.getOrNull(13)?.takeIf { value -> value.isNotEmpty() }
+            it.dnsttSshEnabled = isSsh
+            if (isSsh) {
+                it.dnsttSshUsername = fields.getOrNull(15)
+                it.dnsttSshPassword = fields.getOrNull(16)
+                it.dnsttSshPort = fields.getOrNull(17)?.toIntOrNull() ?: 22
+                it.dnsttSshForwardDns = fields.getOrNull(18) == "1"
+                it.dnsttSshHost = fields.getOrNull(19)
+                it.dnsttSshAuthType = fields.getOrNull(23)?.trim()?.lowercase()?.ifEmpty { "password" } ?: "password"
+                it.dnsttSshPrivateKey = fields.getOrNull(24)?.takeIf { value -> value.isNotEmpty() }?.let(::decode).orEmpty()
+                it.dnsttSshKeyPassphrase = fields.getOrNull(25)?.takeIf { value -> value.isNotEmpty() }?.let(::decode).orEmpty()
+            }
         }
         return profile.takeIf { DnsttFmt.normalize(it) == null }
     }

@@ -36,6 +36,7 @@ object DnsttFmt : FmtBase() {
         PUBLIC_KEY_MISSING,
         PUBLIC_KEY_INVALID,
         UTLS_INVALID,
+        SSH_INVALID,
     }
 
     fun parse(str: String): ProfileItem? {
@@ -71,6 +72,15 @@ object DnsttFmt : FmtBase() {
             it.dnsttRrSpreadCount = query["rrSpread"]?.toIntOrNull()
             it.dnsttSocksUsername = query["socksUsername"]
             it.dnsttSocksPassword = query["socksPassword"]
+            it.dnsttSshEnabled = query["ssh"]?.let { value -> value == "1" || value.equals("true", true) }
+            it.dnsttSshForwardDns = query["sshForwardDns"]?.let { value -> value == "1" || value.equals("true", true) }
+            it.dnsttSshUsername = query["sshUsername"]
+            it.dnsttSshPassword = query["sshPassword"]
+            it.dnsttSshHost = query["sshHost"]
+            it.dnsttSshPort = query["sshPort"]?.toIntOrNull()
+            it.dnsttSshAuthType = query["sshAuthType"]
+            it.dnsttSshPrivateKey = query["sshPrivateKey"]
+            it.dnsttSshKeyPassphrase = query["sshKeyPassphrase"]
         }
         return profile.takeIf { normalize(it) == null }
     }
@@ -97,6 +107,19 @@ object DnsttFmt : FmtBase() {
         normalized.dnsttRrSpreadCount?.takeIf { it > 0 }?.let { query["rrSpread"] = it.toString() }
         normalized.dnsttSocksUsername?.takeIf { it.isNotEmpty() }?.let { query["socksUsername"] = it }
         normalized.dnsttSocksPassword?.takeIf { it.isNotEmpty() }?.let { query["socksPassword"] = it }
+        if (normalized.dnsttSshEnabled == true) {
+            query["ssh"] = "1"
+            if (normalized.dnsttSshForwardDns == true) query["sshForwardDns"] = "1"
+            query["sshUsername"] = normalized.dnsttSshUsername.orEmpty()
+            query["sshPassword"] = normalized.dnsttSshPassword.orEmpty()
+            query["sshHost"] = normalized.dnsttSshHost ?: "127.0.0.1"
+            query["sshPort"] = (normalized.dnsttSshPort ?: 22).toString()
+            query["sshAuthType"] = normalized.dnsttSshAuthType ?: "password"
+            if (normalized.dnsttSshAuthType == "key") {
+                query["sshPrivateKey"] = normalized.dnsttSshPrivateKey.orEmpty()
+                normalized.dnsttSshKeyPassphrase?.takeIf { it.isNotEmpty() }?.let { query["sshKeyPassphrase"] = it }
+            }
+        }
         val encoded = query.entries.joinToString("&") { (key, value) ->
             "${encode(key)}=${encode(value)}"
         }
@@ -161,6 +184,42 @@ object DnsttFmt : FmtBase() {
             return Problem.UTLS_INVALID
         }
 
+        val sshEnabled = config.dnsttSshEnabled == true
+        if (sshEnabled) {
+            val sshUsername = config.dnsttSshUsername?.trim().orEmpty()
+            val sshPassword = config.dnsttSshPassword.orEmpty()
+            val sshHost = config.dnsttSshHost?.trim()?.ifEmpty { "127.0.0.1" } ?: "127.0.0.1"
+            val sshPort = config.dnsttSshPort ?: 22
+            val sshAuthType = config.dnsttSshAuthType?.trim()?.lowercase()?.ifEmpty { "password" } ?: "password"
+            val sshPrivateKey = config.dnsttSshPrivateKey.orEmpty()
+            val sshKeyPassphrase = config.dnsttSshKeyPassphrase.orEmpty()
+            if (sshUsername.isEmpty() || sshUsername.length > 256 || sshUsername.any { it.isISOControl() } ||
+                sshPassword.length > 16_384 || sshPassword.contains('\u0000') ||
+                !validHost(sshHost) || sshPort !in 1..65535 ||
+                (sshAuthType != "password" && sshAuthType != "key") ||
+                (sshAuthType == "key" && sshPrivateKey.isBlank()) ||
+                sshPrivateKey.length > 262_144 || sshPrivateKey.contains('\u0000') ||
+                sshKeyPassphrase.length > 16_384 || sshKeyPassphrase.contains('\u0000')
+            ) return Problem.SSH_INVALID
+            config.dnsttSshForwardDns = config.dnsttSshForwardDns == true
+            config.dnsttSshUsername = sshUsername
+            config.dnsttSshPassword = sshPassword
+            config.dnsttSshHost = sshHost
+            config.dnsttSshPort = sshPort
+            config.dnsttSshAuthType = sshAuthType
+            config.dnsttSshPrivateKey = sshPrivateKey
+            config.dnsttSshKeyPassphrase = sshKeyPassphrase
+        } else {
+            config.dnsttSshForwardDns = null
+            config.dnsttSshUsername = null
+            config.dnsttSshPassword = null
+            config.dnsttSshHost = null
+            config.dnsttSshPort = null
+            config.dnsttSshAuthType = null
+            config.dnsttSshPrivateKey = null
+            config.dnsttSshKeyPassphrase = null
+        }
+
         config.dnsttDomain = domain
         config.dnsttTransport = transport.type
         config.dnsttResolver = resolver
@@ -173,6 +232,7 @@ object DnsttFmt : FmtBase() {
         config.dnsttMaxPayload = maxPayload
         config.dnsttResolverMode = resolverMode?.takeIf { it.isNotBlank() } ?: "fanout"
         config.dnsttRrSpreadCount = rrSpread
+        config.dnsttSshEnabled = sshEnabled
         config.server = domain
         config.serverPort = null
         config.remarks = config.remarks.trim().ifEmpty { DEFAULT_REMARKS }
