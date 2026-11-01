@@ -274,7 +274,7 @@ class SlipNetFmtTest {
             it[26] = Base64.getEncoder().encodeToString("SMART".toByteArray(StandardCharsets.UTF_8))
         }
         val smart = SlipNetFmt.parse(uri(smartFields)) ?: error("Smart Snowflake should import")
-        assertEquals(AetherTorBridges.AUTO.type, smart.aetherTorBridges)
+        assertEquals(AetherTorBridges.SMART.type, smart.aetherTorBridges)
         assertNull(smart.aetherTorBridgeLines)
         assertTrue("--tor-only" in AetherCore.of(smart).arguments)
     }

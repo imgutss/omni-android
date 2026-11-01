@@ -436,6 +436,7 @@ object AetherCoreManager {
                     AetherTorBridges.AUTO -> Unit
                     AetherTorBridges.FIRST -> add("--tor-bridges")
                     AetherTorBridges.NEVER -> add("--no-tor-bridges")
+                    AetherTorBridges.SMART -> add("--tor-smart")
                     AetherTorBridges.OWN -> AetherFmt.bridgeLines(profile.aetherTorBridgeLines)
                         .mapNotNull { settingValue(it) }
                         .forEach { addAll(listOf("--tor-bridge", it)) }

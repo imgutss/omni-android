@@ -774,6 +774,7 @@
         <item>وقتی تور مسدود است</item>
         <item>از همان ابتدا</item>
         <item>هرگز</item>
+                <item>اتصال هوشمند: مستقیم، obfs4، meek، Snowflake</item>
         <item>خط‌های پل خودم</item>
     </string-array>
     <string-array name="aether_tor_relays_entries">

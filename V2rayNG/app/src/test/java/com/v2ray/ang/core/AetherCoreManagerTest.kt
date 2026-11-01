@@ -698,6 +698,10 @@ class AetherCoreManagerTest {
     fun theBridgeSettingReachesTheCoreAsItsFlags() {
         assertTrue("--tor-bridges" in AetherCoreManager.buildArguments(profile().copy(aetherTor = "chain", aetherTorBridges = "first"), 10819))
         assertTrue("--no-tor-bridges" in AetherCoreManager.buildArguments(profile().copy(aetherTor = "only", aetherTorBridges = "never"), 10819))
+        val smart = AetherCoreManager.buildArguments(profile().copy(aetherTor = "only", aetherTorBridges = "smart"), 10819)
+        assertTrue("--tor-smart" in smart)
+        assertFalse("--tor-bridges" in smart)
+        assertFalse("--tor-relays" in smart)
 
         val lines = "obfs4 192.0.2.55:38114 316E64 cert=abc iat-mode=0\n\n# mine\nBridge webtunnel [2001:db8::1]:443 7DD627 url=https://example.com/x ver=0.0.1\n"
         val own = AetherCoreManager.buildArguments(profile().copy(aetherTor = "only", aetherTorBridges = "own", aetherTorBridgeLines = lines), 10819)

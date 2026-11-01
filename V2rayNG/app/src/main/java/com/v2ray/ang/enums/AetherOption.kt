@@ -176,6 +176,9 @@ enum class AetherTorBridges(val type: String) {
     /** Never, however blocked the network looks. */
     NEVER("never"),
 
+    /** Direct, obfs4, meek_lite, then CDN77 Snowflake, with SlipNet's timeout for each. */
+    SMART("smart"),
+
     /** The bridge lines of the profile, and no other. */
     OWN("own");
 

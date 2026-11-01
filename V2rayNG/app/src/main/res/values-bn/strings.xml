@@ -769,6 +769,7 @@
         <item>Tor ব্লক থাকলে</item>
         <item>শুরু থেকেই</item>
         <item>কখনো না</item>
+                <item>Smart Connect</item>
         <item>আমার নিজের ব্রিজ লাইন</item>
     </string-array>
     <string-array name="aether_tor_relays_entries">

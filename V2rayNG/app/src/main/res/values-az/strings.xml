@@ -769,6 +769,7 @@
         <item>Tor bloklandıqda</item>
         <item>Əvvəldən</item>
         <item>Heç vaxt</item>
+                <item>Smart Connect</item>
         <item>Öz körpü sətirlərim</item>
     </string-array>
     <string-array name="aether_tor_relays_entries">

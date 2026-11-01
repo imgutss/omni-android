@@ -175,9 +175,9 @@ object SlipNetFmt : FmtBase() {
             it.aetherTor = AetherTor.ONLY.type
             it.aetherTorBridges = when {
                 direct -> AetherTorBridges.NEVER.type
-                // Aether's AUTO mode tries plain Tor first and then its available bridges, which is
-                // the native equivalent of SlipNet's sequential Smart Connect profile.
-                smart -> AetherTorBridges.AUTO.type
+                // The native SMART policy preserves Direct → obfs4 → meek_lite → Snowflake,
+                // including the per-transport timeouts, rather than substituting Aether AUTO.
+                smart -> AetherTorBridges.SMART.type
                 else -> AetherTorBridges.OWN.type
             }
             // Keep custom records byte-for-byte; AetherFmt normalizes torrc-compatible whitespace

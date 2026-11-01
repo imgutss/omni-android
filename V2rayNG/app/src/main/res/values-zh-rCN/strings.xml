@@ -767,6 +767,7 @@
         <item>Tor 被封锁时</item>
         <item>一开始就使用</item>
         <item>从不</item>
+                <item>Smart Connect</item>
         <item>使用我自己的网桥行</item>
     </string-array>
     <string-array name="aether_tor_relays_entries">

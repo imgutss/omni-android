@@ -769,6 +769,7 @@
         <item>وختی تور مسدوده</item>
         <item>زه اول</item>
         <item>هیچ‌وخت</item>
+                <item>Smart Connect</item>
         <item>خط‌یای پل خوم</item>
     </string-array>
     <string-array name="aether_tor_relays_entries">

@@ -773,6 +773,7 @@
         <item>Когда Tor заблокирован</item>
         <item>С самого начала</item>
         <item>Никогда</item>
+                <item>Smart Connect</item>
         <item>Мои строки мостов</item>
     </string-array>
     <string-array name="aether_tor_relays_entries">

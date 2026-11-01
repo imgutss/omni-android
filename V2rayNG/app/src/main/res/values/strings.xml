@@ -781,6 +781,7 @@
         <item>When Tor is blocked</item>
         <item>From the start</item>
         <item>Never</item>
+        <item>Direct → obfs4 → meek → Snowflake</item>
         <item>My own bridge lines</item>
     </string-array>
     <string-array name="aether_tor_relays_entries">

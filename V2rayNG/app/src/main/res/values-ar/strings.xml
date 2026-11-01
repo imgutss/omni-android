@@ -777,6 +777,7 @@
         <item>عندما يكون تور محجوبًا</item>
         <item>منذ البداية</item>
         <item>أبدًا</item>
+                <item>Smart Connect</item>
         <item>أسطر الجسور الخاصة بي</item>
     </string-array>
     <string-array name="aether_tor_relays_entries">

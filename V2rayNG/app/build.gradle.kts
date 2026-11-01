@@ -148,6 +148,11 @@ android {
     }
 
     packaging {
+        // Keep native programs extracted so their executable files can start, but compress DEX.
+        // minSdk 29 otherwise makes AGP store roughly 38 MiB of DEX uncompressed in every APK.
+        dex {
+            useLegacyPackaging = true
+        }
         jniLibs {
             useLegacyPackaging = true
         }

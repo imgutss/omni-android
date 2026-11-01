@@ -767,6 +767,7 @@
         <item>Khi Tor bị chặn</item>
         <item>Ngay từ đầu</item>
         <item>Không bao giờ</item>
+                <item>Smart Connect</item>
         <item>Dòng bridge của riêng tôi</item>
     </string-array>
     <string-array name="aether_tor_relays_entries">
