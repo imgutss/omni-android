@@ -203,8 +203,59 @@ object DnsttFmt : FmtBase() {
         }
         val values = if (allowMultiple) value.split(',') else listOf(value)
         if (values.isEmpty() || values.any { it.isBlank() }) return null
-        val normalized = values.map { normalizeEndpoint(it, transport.defaultPort) ?: return null }
+        if (allowMultiple) {
+            val marked = values.map { authoritySuffix(it) != null }
+            if (marked.any { it } && !marked.all { it }) return null
+        }
+        val normalized = values.map {
+            if (allowMultiple) {
+                normalizeNoizEndpoint(it, transport.defaultPort) ?: return null
+            } else {
+                normalizeEndpoint(it, transport.defaultPort) ?: return null
+            }
+        }
         return normalized.joinToString(",")
+    }
+
+    /**
+     * NoizDNS profiles may retain SlipNet's optional :0/:1 authority suffix.
+     * It is profile metadata, not part of the DNS endpoint passed to Go.
+     */
+    private fun normalizeNoizEndpoint(value: String, defaultPort: Int): String? {
+        val authority = authoritySuffix(value)
+        val endpoint = if (authority == null) value else value.removeSuffix(":$authority")
+        val normalized = normalizeEndpoint(endpoint, defaultPort) ?: return null
+        return if (authority == null) normalized else "$normalized:$authority"
+    }
+
+    /** Strips profile authority suffixes before constructing engine arguments. */
+    internal fun engineResolver(value: String): String = value.split(',').joinToString(",") { entry ->
+        val authority = authoritySuffix(entry)
+        if (authority == null) entry else entry.removeSuffix(":$authority")
+    }
+
+    /** Returns the original per-resolver modes, or an empty list for legacy unmarked profiles. */
+    internal fun resolverAuthorities(value: String): List<Boolean> {
+        val values = value.split(',')
+        if (values.isEmpty()) return emptyList()
+        val flags = values.map { entry -> authoritySuffix(entry) ?: return emptyList() }
+        return flags.map { it == "1" }
+    }
+
+    private fun authoritySuffix(value: String): String? {
+        if (value.startsWith('[')) {
+            val close = value.indexOf(']')
+            if (close < 0) return null
+            val pieces = value.substring(close + 1).split(':')
+            return pieces.getOrNull(2)?.takeIf {
+                pieces.size == 3 && pieces[1].toIntOrNull() != null && (it == "0" || it == "1")
+            }
+        }
+        val pieces = value.split(':')
+        return pieces.getOrNull(2)?.takeIf {
+            pieces.size == 3 && pieces[0].isNotEmpty() &&
+                pieces[1].toIntOrNull() != null && (it == "0" || it == "1")
+        }
     }
 
     /** Accepts host:port, bracketed IPv6, and bare host/IP with the transport's standard port. */

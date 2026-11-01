@@ -6,6 +6,7 @@ CLIENT = os.environ.get('OMNI_NOIZDNS_CLIENT', '/tmp/omni-noizdns-host')
 SERVER = os.environ.get('OMNI_NOIZDNS_SERVER' if os.environ.get('NOIZ') else 'OMNI_DNSTT_SERVER', '/tmp/omni-noizdns-server' if os.environ.get('NOIZ') else '/tmp/omni-dnstt-server')
 NOIZ = bool(os.environ.get('NOIZ'))
 NONAUTH = bool(os.environ.get('NONAUTH'))
+MIXED = bool(os.environ.get('MIXED'))
 STEALTH = bool(os.environ.get('STEALTH'))
 KEY = os.environ.get('OMNI_LOOP_KEY', '/tmp/omni-loop.key')
 PUB = open(os.environ.get('OMNI_LOOP_PUB', '/tmp/omni-loop.pub')).read().strip()
@@ -128,11 +129,14 @@ def wait_port(port, timeout=45):
 
 def main():
     echo_port, socks_port, dns_port, local_port = [free_port() for _ in range(3)] + [free_port()]
-    resolver_port = free_port(socket.SOCK_DGRAM) if NONAUTH else dns_port
+    resolver_port = free_port(socket.SOCK_DGRAM) if NONAUTH or MIXED else dns_port
+    resolver_port2 = free_port(socket.SOCK_DGRAM) if MIXED else None
     echo_server(echo_port); socks_server(socks_port)
-    if NONAUTH:
+    if NONAUTH or MIXED:
         dns_proxy(resolver_port, dns_port)
-    tag = ('noiz' if NOIZ else 'dnstt') + ('-nonauth' if NONAUTH else '-authoritative') + ('-stealth' if STEALTH else '')
+    if MIXED:
+        dns_proxy(resolver_port2, dns_port)
+    tag = ('noiz' if NOIZ else 'dnstt') + ('-mixed' if MIXED else ('-nonauth' if NONAUTH else '-authoritative')) + ('-stealth' if STEALTH else '')
     server_log = open(os.path.join(LOG_DIR, tag + '-server.log'), 'w')
     client_log = open(os.path.join(LOG_DIR, tag + '-client.log'), 'w')
     server_args = [SERVER, '-udp', f'127.0.0.1:{dns_port}', '-privkey-file', KEY, 't.example.com', f'127.0.0.1:{socks_port}']
@@ -141,8 +145,12 @@ def main():
     server = subprocess.Popen(server_args, stdout=server_log, stderr=server_log)
     children.append(server)
     time.sleep(.3)
-    client_args = [CLIENT, '-udp', f'127.0.0.1:{resolver_port}', '-pubkey', PUB]
-    if not NONAUTH:
+    if MIXED:
+        client_args = [CLIENT, '-udp', f'127.0.0.1:{resolver_port},127.0.0.1:{resolver_port2}',
+                       '-resolver-authoritative', '0,1', '-pubkey', PUB]
+    else:
+        client_args = [CLIENT, '-udp', f'127.0.0.1:{resolver_port}', '-pubkey', PUB]
+    if not NONAUTH and not MIXED:
         client_args.append('-authoritative')
     if NOIZ:
         client_args.append('-noiz')

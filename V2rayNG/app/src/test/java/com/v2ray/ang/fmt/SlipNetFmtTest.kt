@@ -45,7 +45,7 @@ class SlipNetFmtTest {
         assertNotNull(profile)
         assertEquals(EConfigType.DNSTT, profile?.configType)
         assertEquals("ns2.motoclub.site", profile?.dnsttDomain)
-        assertEquals("192.168.88.118:53", profile?.dnsttResolver)
+        assertEquals("192.168.88.118:53:1", profile?.dnsttResolver)
         assertEquals(key, profile?.dnsttPublicKey)
         assertEquals(DnsttFmt.ENGINE_NOIZDNS, profile?.dnsttEngine)
         assertTrue(profile?.dnsttAuthoritative == true)
@@ -64,31 +64,34 @@ class SlipNetFmtTest {
         }
         val profile = SlipNetFmt.parse(uri(fields))
         assertNotNull(profile)
-        assertEquals("1.1.1.1:53,8.8.8.8:53", profile?.dnsttResolver)
+        assertEquals("1.1.1.1:53:0,8.8.8.8:53:0", profile?.dnsttResolver)
         assertTrue(profile?.dnsttNoiz == true)
         assertTrue(profile?.dnsttStealth == true)
         assertEquals(80, profile?.dnsttMaxPayload)
     }
 
     @Test
-    fun resolverAuthoritativeFlagReachesTheNoizDnsCore() {
-        val fields = fixture("sayedns").also {
+    fun uniformResolverAuthorityReachesTheCoreWithoutCollapsingMixedLists() {
+        val uniform = fixture("sayedns").also {
+            it[4] = "1.1.1.1:53:1,9.9.9.9:53:1"
+            it[27] = "0"
+        }
+        val authoritative = SlipNetFmt.parse(uri(uniform)) ?: error("Uniform profile should import")
+        assertTrue(authoritative.dnsttAuthoritative == true)
+        assertTrue(DnsttCore.of(authoritative).authoritative)
+
+        val mixedFields = fixture("sayedns").also {
             it[4] = "1.1.1.1:53:0,9.9.9.9:53:1"
             it[27] = "0"
         }
-        val profile = SlipNetFmt.parse(uri(fields)) ?: error("Profile should import")
-        assertTrue(profile.dnsttAuthoritative == true)
-        assertTrue(DnsttCore.of(profile).authoritative)
-
-        val ordinary = fixture("sayedns").also {
-            it[4] = "1.1.1.1:53:0,9.9.9.9:53:0"
-            it[27] = "0"
-        }
-        assertFalse(SlipNetFmt.parse(uri(ordinary))?.dnsttAuthoritative == true)
+        val mixed = SlipNetFmt.parse(uri(mixedFields)) ?: error("Mixed profile should import")
+        assertEquals("1.1.1.1:53:0,9.9.9.9:53:1", mixed.dnsttResolver)
+        assertFalse(mixed.dnsttAuthoritative == true)
+        assertFalse(DnsttCore.of(mixed).authoritative)
     }
 
     @Test
-    fun resolverAuthoritativeFlagSurvivesOmniUriRoundTrip() {
+    fun mixedResolverAuthoritySurvivesOmniUriRoundTrip() {
         val fields = fixture("sayedns").also {
             it[4] = "1.1.1.1:53:0,9.9.9.9:53:1"
             it[27] = ""
@@ -96,10 +99,11 @@ class SlipNetFmtTest {
         val imported = SlipNetFmt.parse(uri(fields)) ?: error("Profile should import")
         val omniUri = EConfigType.DNSTT.protocolScheme + DnsttFmt.toUri(imported)
         val restored = DnsttFmt.parse(omniUri) ?: error("Omni URI should parse")
-        assertTrue(restored.dnsttAuthoritative == true)
-        assertTrue(DnsttCore.of(restored).authoritative)
+        assertFalse(restored.dnsttAuthoritative == true)
+        assertFalse(DnsttCore.of(restored).authoritative)
         assertEquals(imported.dnsttResolver, restored.dnsttResolver)
-        assertTrue(omniUri.contains("authoritative=1"))
+        assertEquals("1.1.1.1:53:0,9.9.9.9:53:1", restored.dnsttResolver)
+        assertFalse(omniUri.contains("authoritative=1"))
     }
 
     @Test
@@ -108,10 +112,10 @@ class SlipNetFmtTest {
             it[4] = ""
             it[27] = ""
             it[36] = "1"
-            it[37] = "[2001:db8::1]:53:1,9.9.9.9:53:0"
+            it[37] = "[2001:db8::1]:53:1,9.9.9.9:53:1"
         }
         val profile = SlipNetFmt.parse(uri(hidden)) ?: error("Hidden profile should import")
-        assertEquals("[2001:db8::1]:53,9.9.9.9:53", profile.dnsttResolver)
+        assertEquals("[2001:db8::1]:53:1,9.9.9.9:53:1", profile.dnsttResolver)
         assertTrue(profile.dnsttAuthoritative == true)
         assertTrue(DnsttCore.of(profile).authoritative)
     }
@@ -123,7 +127,7 @@ class SlipNetFmtTest {
             it[36] = "1"
             it[37] = "9.9.9.9:53:0"
         }
-        assertEquals("9.9.9.9:53", SlipNetFmt.parse(uri(hidden))?.dnsttResolver)
+        assertEquals("9.9.9.9:53:0", SlipNetFmt.parse(uri(hidden))?.dnsttResolver)
 
         val doh = fixture().also {
             it[4] = ""
@@ -137,7 +141,7 @@ class SlipNetFmtTest {
             it[4] = "1.1.1.1:53:0"
             it[22] = "dot"
         }
-        assertEquals("1.1.1.1:853", SlipNetFmt.parse(uri(dot))?.dnsttResolver)
+        assertEquals("1.1.1.1:853:0", SlipNetFmt.parse(uri(dot))?.dnsttResolver)
     }
 
     @Test
@@ -154,6 +158,8 @@ class SlipNetFmtTest {
         assertNull(SlipNetFmt.parse(uri(fixture().also { it[14] = "1" })))
         assertNull(SlipNetFmt.parse("slipnet://not-base64"))
         assertNull(SlipNetFmt.parse(uri(fixture().also { it[11] = "short" })))
+        assertNull(SlipNetFmt.parse(uri(fixture().also { it[4] = "1.1.1.1:53:2" })))
+        assertNull(SlipNetFmt.parse(uri(fixture().also { it[4] = "[2001:db8::1]:53:1:extra" })))
         assertNull(SlipNetFmt.parse("dnstt://?transport=udp&resolver=1.1.1.1&domain=t.example.com&pubkey=$key"))
     }
 }

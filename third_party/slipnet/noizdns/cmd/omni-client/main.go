@@ -5,6 +5,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -15,9 +16,53 @@ import (
 	"noizdns/mobile"
 )
 
+// tunnel is implemented by both the ordinary mobile client and the mixed
+// resolver composite. The lifecycle and health monitor stay identical.
+type tunnel interface {
+	Start() error
+	Stop()
+	IsRunning() bool
+}
+
+type clientOptions struct {
+	domain, publicKey, listenAddr   string
+	utlsDistribution, resolverMode  string
+	protectAddress                  string
+	authoritative, noiz, stealth    bool
+	maxPayload, edns0Size, rrSpread int
+}
+
+func (o clientOptions) newClient(dnsAddr, listenAddr string, authoritative bool) (*mobile.DnsttClient, error) {
+	client, err := mobile.NewClient(dnsAddr, o.domain, o.publicKey, listenAddr)
+	if err != nil {
+		return nil, err
+	}
+	if o.utlsDistribution != "" {
+		client.SetUTLSFingerprint(o.utlsDistribution)
+	}
+	client.SetAuthoritativeMode(authoritative)
+	client.SetNoizMode(o.noiz)
+	if o.stealth {
+		client.SetStealthMode(true)
+	}
+	if o.maxPayload > 0 {
+		client.SetMaxPayload(o.maxPayload)
+	}
+	if o.edns0Size > 0 {
+		client.SetEDNS0Size(o.edns0Size)
+	}
+	client.SetResolverMode(o.resolverMode)
+	client.SetRRSpreadCount(int64(o.rrSpread))
+	if username := os.Getenv("OMNI_DNSTT_SOCKS_USER"); username != "" {
+		client.SetSocksCredentials(username, os.Getenv("OMNI_DNSTT_SOCKS_PASSWORD"))
+	}
+	return client, nil
+}
+
 func main() {
 	var dohURL, dotAddr, tcpAddr, udpAddr string
 	var publicKey, utlsDistribution, resolverMode, protectAddress string
+	var resolverAuthority string
 	var authoritative, noiz, stealth bool
 	var maxPayload, edns0Size, rrSpread int
 
@@ -29,6 +74,7 @@ func main() {
 	flag.StringVar(&utlsDistribution, "utls", "", "uTLS fingerprint distribution")
 	flag.StringVar(&resolverMode, "resolver-mode", "fanout", "fanout or roundrobin")
 	flag.StringVar(&protectAddress, "fd-control-unix-socket", "", "Android FD-protection endpoint")
+	flag.StringVar(&resolverAuthority, "resolver-authoritative", "", "per-resolver 0/1 modes, comma-separated")
 	flag.BoolVar(&authoritative, "authoritative", false, "authoritative-resolver tuning")
 	flag.BoolVar(&noiz, "noiz", false, "enable NoizDNS mode")
 	flag.BoolVar(&stealth, "stealth", false, "enable NoizDNS stealth mode")
@@ -71,35 +117,42 @@ func main() {
 		dnsAddr = udpAddr
 	}
 
-	client, err := mobile.NewClient(dnsAddr, flag.Arg(0), publicKey, flag.Arg(1))
+	options := clientOptions{
+		domain: flag.Arg(0), publicKey: publicKey, listenAddr: flag.Arg(1),
+		utlsDistribution: utlsDistribution, resolverMode: resolverMode,
+		protectAddress: protectAddress, authoritative: authoritative,
+		noiz: noiz, stealth: stealth, maxPayload: maxPayload,
+		edns0Size: edns0Size, rrSpread: rrSpread,
+	}
+	authority, err := parseAuthorityFlags(resolverAuthority, resolverCount(dnsAddr))
 	if err != nil {
-		log.Fatalf("create client: %v", err)
+		log.Fatalf("resolver authority: %v", err)
 	}
-	if utlsDistribution != "" {
-		client.SetUTLSFingerprint(utlsDistribution)
+	mixed := hasMixedAuthority(authority)
+	if len(authority) > 0 && !mixed {
+		// A uniform list is safe for the original single-tunnel API. For a
+		// mixed list the per-resolver markers govern each child tunnel below
+		// unless the legacy scalar explicitly overrides the whole pool.
+		options.authoritative = options.authoritative || authority[0]
 	}
-	client.SetAuthoritativeMode(authoritative)
-	client.SetNoizMode(noiz)
-	if stealth {
-		client.SetStealthMode(true)
-	}
-	if maxPayload > 0 {
-		client.SetMaxPayload(maxPayload)
-	}
-	if edns0Size > 0 {
-		client.SetEDNS0Size(edns0Size)
-	}
-	client.SetResolverMode(resolverMode)
-	client.SetRRSpreadCount(int64(rrSpread))
-	if username := os.Getenv("OMNI_DNSTT_SOCKS_USER"); username != "" {
-		client.SetSocksCredentials(username, os.Getenv("OMNI_DNSTT_SOCKS_PASSWORD"))
+	if mixed && dohURL != "" {
+		log.Fatalf("mixed per-resolver authority requires UDP, TCP, or DoT resolvers")
 	}
 	mobile.SetFDControlUnixSocket(protectAddress)
 
-	if err := client.Start(); err != nil {
+	var process tunnel
+	if mixed {
+		process, err = newMixedTunnel(options, strings.Split(dnsAddr, ","), authority)
+	} else {
+		process, err = options.newClient(dnsAddr, options.listenAddr, options.authoritative)
+	}
+	if err != nil {
+		log.Fatalf("create client: %v", err)
+	}
+	if err := process.Start(); err != nil {
 		log.Fatalf("start tunnel: %v", err)
 	}
-	log.Printf("NoizDNS process started (noiz=%t authoritative=%t)", noiz, authoritative)
+	log.Printf("NoizDNS process started (noiz=%t authoritative=%t mixed-resolvers=%t)", noiz, options.authoritative, mixed)
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
@@ -111,7 +164,7 @@ func main() {
 		case <-sigCh:
 			done := make(chan struct{})
 			go func() {
-				client.Stop()
+				process.Stop()
 				close(done)
 			}()
 			select {
@@ -121,14 +174,52 @@ func main() {
 			}
 			return
 		case <-health.C:
-			if !client.IsRunning() {
-				// The mobile API runs the tunnel in a goroutine. Do not leave a
-				// seemingly alive Android process after that goroutine has failed.
+			if !process.IsRunning() {
+				// Do not leave a seemingly alive Android process after a
+				// tunnel goroutine has failed.
 				log.Printf("NoizDNS tunnel stopped unexpectedly")
 				os.Exit(1)
 			}
 		}
 	}
+}
+
+func resolverCount(dnsAddr string) int {
+	return len(strings.Split(dnsAddr, ","))
+}
+
+func parseAuthorityFlags(raw string, count int) ([]bool, error) {
+	if strings.TrimSpace(raw) == "" {
+		return nil, nil
+	}
+	parts := strings.Split(raw, ",")
+	if len(parts) != count || count < 1 {
+		return nil, fmt.Errorf("got %d flags for %d resolvers", len(parts), count)
+	}
+	flags := make([]bool, len(parts))
+	for i, part := range parts {
+		switch strings.TrimSpace(part) {
+		case "0":
+			flags[i] = false
+		case "1":
+			flags[i] = true
+		default:
+			return nil, fmt.Errorf("flag %d must be 0 or 1", i)
+		}
+	}
+	return flags, nil
+}
+
+func hasMixedAuthority(flags []bool) bool {
+	if len(flags) < 2 {
+		return false
+	}
+	for _, flag := range flags[1:] {
+		if flag != flags[0] {
+			return true
+		}
+	}
+	return false
 }
 
 func prefixEndpoints(raw, prefix string) string {

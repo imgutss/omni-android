@@ -70,12 +70,12 @@ object SlipNetFmt : FmtBase() {
         val resolverData = if (fields.getOrNull(36) == "1" &&
             !fields.getOrNull(37).isNullOrBlank()
         ) fields[37] else fields[4]
-        var resolverAuthoritative = false
+        var resolverAuthorities: List<Boolean> = emptyList()
         val resolver = if (transport == "doh") {
             fields.getOrNull(21)?.trim().orEmpty()
         } else {
             val parsed = canonicalResolvers(resolverData, transport) ?: return null
-            resolverAuthoritative = parsed.authoritative
+            resolverAuthorities = parsed.authoritativeFlags
             parsed.endpoints
         }
         if (resolver.isEmpty()) return null
@@ -91,10 +91,11 @@ object SlipNetFmt : FmtBase() {
             it.dnsttDomain = domain
             it.dnsttPublicKey = publicKey
             it.dnsttUtls = DnsttFmt.DEFAULT_UTLS
-            // SlipNet stores this flag both globally (v13+) and on each
-            // resolver. The NoizDNS mobile API applies authoritative tuning to
-            // the selected resolver pool, so retain either source of intent.
-            it.dnsttAuthoritative = fields.getOrNull(27) == "1" || resolverAuthoritative
+            // The ordinary engine switch is pool-wide. Infer it only when
+            // every marker agrees; mixed markers stay in the profile and are
+            // handled by the per-resolver composite at process start.
+            it.dnsttAuthoritative = fields.getOrNull(27) == "1" ||
+                (resolverAuthorities.isNotEmpty() && resolverAuthorities.all { flag -> flag })
             it.dnsttNoiz = isNoiz
             it.dnsttStealth = isNoiz && fields.getOrNull(38) == "1"
             it.dnsttMaxPayload = fields.getOrNull(39)?.toIntOrNull()?.coerceIn(0, 4096) ?: 0
@@ -109,14 +110,14 @@ object SlipNetFmt : FmtBase() {
 
     private data class CanonicalResolvers(
         val endpoints: String,
-        val authoritative: Boolean,
+        val authoritativeFlags: List<Boolean>,
     )
 
-    /** Converts SlipNet host:port:authoritative entries without losing their mode. */
+    /** Keeps each SlipNet host:port:authoritative marker in the canonical profile. */
     private fun canonicalResolvers(raw: String, transport: String): CanonicalResolvers? {
         if (raw.isBlank()) return null
         val result = mutableListOf<String>()
-        var authoritative = false
+        val authoritativeFlags = mutableListOf<Boolean>()
         raw.split(',').forEach { entry ->
             val value = entry.trim()
             if (value.isEmpty() || value.any { it.isWhitespace() || it == '\u0000' }) return null
@@ -127,25 +128,30 @@ object SlipNetFmt : FmtBase() {
                     val host = value.substring(1, close)
                     val rest = value.substring(close + 1)
                     val pieces = rest.split(':')
-                    val port = pieces.getOrNull(1)?.toIntOrNull() ?: 53
-                    if (host.isBlank() || port !in 1..65535) return null
-                    authoritative = authoritative || pieces.getOrNull(2) == "1"
-                    "[$host]:${dnsPort(port, transport)}"
+                    if (pieces.size > 3 || pieces.getOrNull(0) != "") return null
+                    val port = pieces.getOrNull(1)?.takeIf { it.isNotEmpty() }?.toIntOrNull() ?: 53
+                    if (host.isBlank() || port !in 1..65535 ||
+                        (pieces.size == 3 && pieces[2] !in setOf("0", "1"))) return null
+                    val authoritative = pieces.getOrNull(2) == "1"
+                    authoritativeFlags += authoritative
+                    "[$host]:${dnsPort(port, transport)}:${if (authoritative) "1" else "0"}"
                 }
                 else -> {
                     val pieces = value.split(':')
-                    if (pieces.size < 2) return null
+                    if (pieces.size !in 2..3) return null
                     val host = pieces[0]
                     val port = pieces[1].toIntOrNull() ?: 53
-                    if (host.isBlank() || port !in 1..65535 || host.contains(':')) return null
-                    authoritative = authoritative || pieces.getOrNull(2) == "1"
-                    "$host:${dnsPort(port, transport)}"
+                    if (host.isBlank() || port !in 1..65535 || host.contains(':') ||
+                        (pieces.size == 3 && pieces[2] !in setOf("0", "1"))) return null
+                    val authoritative = pieces.getOrNull(2) == "1"
+                    authoritativeFlags += authoritative
+                    "$host:${dnsPort(port, transport)}:${if (authoritative) "1" else "0"}"
                 }
             }
             result += hostPort
         }
         return result.takeIf { it.isNotEmpty() }?.let {
-            CanonicalResolvers(it.joinToString(","), authoritative)
+            CanonicalResolvers(it.joinToString(","), authoritativeFlags)
         }
     }
 

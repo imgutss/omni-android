@@ -30,4 +30,7 @@ python3 "$ROOT_DIR/tools/noizdns_loopback_test.py"
 NOIZ=1 python3 "$ROOT_DIR/tools/noizdns_loopback_test.py"
 NOIZ=1 NONAUTH=1 python3 "$ROOT_DIR/tools/noizdns_loopback_test.py"
 NOIZ=1 NONAUTH=1 STEALTH=1 python3 "$ROOT_DIR/tools/noizdns_loopback_test.py"
+# A mixed SlipNet resolver list must run two independently tuned real tunnels
+# behind the same local SOCKS5 endpoint, not collapse to one global mode.
+NOIZ=1 MIXED=1 python3 "$ROOT_DIR/tools/noizdns_loopback_test.py"
 echo "All NoizDNS loopback cases passed; logs were in $WORK_DIR"

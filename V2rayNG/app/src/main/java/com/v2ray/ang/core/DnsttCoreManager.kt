@@ -199,11 +199,20 @@ object DnsttCoreManager {
     internal fun processArguments(binary: File, core: DnsttCore, protectAddress: String?): List<String> = buildList {
         add(binary.absolutePath)
         if (core.engine == DnsttFmt.ENGINE_NOIZDNS) {
+            // The Go client takes host:port endpoints, not SlipNet's profile
+            // authority suffixes. Keep those suffixes in the saved profile and
+            // Omni URI, and pass their values separately to the mixed-tunnel
+            // composite; only the explicit/uniform pool mode becomes -authoritative.
+            val engineResolver = DnsttFmt.engineResolver(core.resolver)
+            val resolverAuthorities = DnsttFmt.resolverAuthorities(core.resolver)
+            if (resolverAuthorities.isNotEmpty()) {
+                add("-resolver-authoritative=${resolverAuthorities.joinToString(",") { if (it) "1" else "0" }}")
+            }
             when (core.transport) {
-                DnsttFmt.Transport.DOH -> add("-doh=${core.resolver}")
-                DnsttFmt.Transport.DOT -> add("-dot=${core.resolver}")
-                DnsttFmt.Transport.UDP -> add("-udp=${core.resolver}")
-                DnsttFmt.Transport.TCP -> add("-tcp=${core.resolver}")
+                DnsttFmt.Transport.DOH -> add("-doh=$engineResolver")
+                DnsttFmt.Transport.DOT -> add("-dot=$engineResolver")
+                DnsttFmt.Transport.UDP -> add("-udp=$engineResolver")
+                DnsttFmt.Transport.TCP -> add("-tcp=$engineResolver")
             }
             add("-pubkey=${core.publicKey}")
             if (core.utls.isNotBlank()) add("-utls=${core.utls}")

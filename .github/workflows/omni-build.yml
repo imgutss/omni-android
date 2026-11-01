@@ -271,7 +271,7 @@ jobs:
         # The JVM unit tests are the only automated check of the Kotlin logic; a failure stops the
         # build before anything is assembled or signed.
         ./gradlew :app:testPlaystoreDebugUnitTest
-        ./gradlew assemblePlaystoreRelease -PpattngVersion="${{ inputs.release_tag || '0.8.0' }}" -Pandroid.injected.signing.store.file=${{ steps.android_keystore.outputs.filePath }} -Pandroid.injected.signing.store.password=${{ secrets.OMNI_KEYSTORE_PASSWORD }} -Pandroid.injected.signing.key.alias=${{ secrets.OMNI_KEY_ALIAS }} -Pandroid.injected.signing.key.password=${{ secrets.OMNI_KEY_PASSWORD }}
+        ./gradlew assemblePlaystoreRelease -PpattngVersion="${{ inputs.release_tag || '0.8.1' }}" -Pandroid.injected.signing.store.file=${{ steps.android_keystore.outputs.filePath }} -Pandroid.injected.signing.store.password=${{ secrets.OMNI_KEYSTORE_PASSWORD }} -Pandroid.injected.signing.key.alias=${{ secrets.OMNI_KEY_ALIAS }} -Pandroid.injected.signing.key.password=${{ secrets.OMNI_KEY_PASSWORD }}
     
     - name: Check the native libraries in the APKs
       run: |

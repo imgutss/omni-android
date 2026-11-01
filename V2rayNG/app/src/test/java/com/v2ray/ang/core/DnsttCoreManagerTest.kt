@@ -65,6 +65,25 @@ class DnsttCoreManagerTest {
     }
 
     @Test
+    fun mixedResolverModesReachTheCompositeWithoutInvalidDnsSuffixes() {
+        val noiz = core.copy(
+            engine = DnsttFmt.ENGINE_NOIZDNS,
+            resolver = "1.1.1.1:53:0,9.9.9.9:53:1",
+            authoritative = false,
+            noiz = true,
+        )
+        val arguments = DnsttCoreManager.processArguments(
+            binary = File("/data/app/lib/libnoizdns.so"),
+            core = noiz,
+            protectAddress = null,
+        )
+        assertTrue("-resolver-authoritative=0,1" in arguments)
+        assertTrue("-udp=1.1.1.1:53,9.9.9.9:53" in arguments)
+        assertFalse("-authoritative" in arguments)
+        assertFalse(arguments.any { it.contains("1.1.1.1:53:0") || it.contains("9.9.9.9:53:1") })
+    }
+
+    @Test
     fun proxyAndRootModesDoNotInventAProtectEndpoint() {
         val arguments = DnsttCoreManager.processArguments(File("/bin/libdnstt.so"), core, null)
         assertFalse(arguments.any { it.startsWith("-fd-control-unix-socket=") })

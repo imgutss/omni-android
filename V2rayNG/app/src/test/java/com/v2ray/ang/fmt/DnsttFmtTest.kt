@@ -87,6 +87,27 @@ class DnsttFmtTest {
     }
 
     @Test
+    fun noizResolverAuthorityMarkersAreValidatedAndSeparatedFromEngineEndpoints() {
+        val mixed = profile().apply {
+            dnsttTransport = "udp"
+            dnsttResolver = "1.1.1.1:53:0,[2001:db8::1]:53:1"
+            dnsttEngine = DnsttFmt.ENGINE_NOIZDNS
+            dnsttNoiz = true
+        }
+        assertNull(DnsttFmt.normalize(mixed))
+        assertEquals("1.1.1.1:53,[2001:db8::1]:53", DnsttFmt.engineResolver(mixed.dnsttResolver!!))
+        assertEquals(listOf(false, true), DnsttFmt.resolverAuthorities(mixed.dnsttResolver!!))
+
+        val partiallyMarked = profile().apply {
+            dnsttTransport = "udp"
+            dnsttResolver = "1.1.1.1:53:0,9.9.9.9:53"
+            dnsttEngine = DnsttFmt.ENGINE_NOIZDNS
+            dnsttNoiz = true
+        }
+        assertEquals(DnsttFmt.Problem.RESOLVER_INVALID, DnsttFmt.normalize(partiallyMarked))
+    }
+
+    @Test
     fun coreIdentityIncludesEveryEngineInputButNotTheProfileName() {
         val first = com.v2ray.ang.core.DnsttCore.of(profile())
         val same = com.v2ray.ang.core.DnsttCore.of(profile().apply { remarks = "another name" })
