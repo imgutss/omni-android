@@ -27,6 +27,11 @@ object SlipNetFmt : FmtBase() {
     private const val MODE_DNSTT = "dnstt"
     private const val MODE_DNSTT_SSH = "dnstt_ssh"
     private const val MODE_NOIZDNS = "sayedns"
+    private const val MODE_NOIZDNS_SSH = "sayedns_ssh"
+    private const val MODE_VAYDNS = "vaydns"
+    private const val MODE_VAYDNS_SSH = "vaydns_ssh"
+    private const val MODE_SLIPSTREAM = "ss"
+    private const val MODE_SLIPSTREAM_SSH = "slipstream_ssh"
     private const val MODE_SNOWFLAKE = "snowflake"
 
     /**
@@ -78,12 +83,15 @@ object SlipNetFmt : FmtBase() {
 
         val mode = fields[1].trim().lowercase()
         if (mode == MODE_SNOWFLAKE) return parseSnowflake(fields)
-        val isNoiz = when (mode) {
-            MODE_DNSTT, MODE_DNSTT_SSH -> false
-            MODE_NOIZDNS -> true
+        val engine = when (mode) {
+            MODE_DNSTT, MODE_DNSTT_SSH -> DnsttFmt.ENGINE_DNSTT
+            MODE_NOIZDNS, MODE_NOIZDNS_SSH -> DnsttFmt.ENGINE_NOIZDNS
+            MODE_VAYDNS, MODE_VAYDNS_SSH -> DnsttFmt.ENGINE_VAYDNS
+            MODE_SLIPSTREAM, MODE_SLIPSTREAM_SSH -> DnsttFmt.ENGINE_SLIPSTREAM
             else -> return null
         }
-        val isSsh = mode == MODE_DNSTT_SSH
+        val isNoiz = engine == DnsttFmt.ENGINE_NOIZDNS
+        val isSsh = mode in setOf(MODE_DNSTT_SSH, MODE_NOIZDNS_SSH, MODE_VAYDNS_SSH, MODE_SLIPSTREAM_SSH)
         // A legacy sshEnabled marker without the dedicated tunnel type is not
         // enough evidence to choose a different lifecycle.
         if (!isSsh && fields.getOrNull(14) == "1") return null
@@ -91,7 +99,7 @@ object SlipNetFmt : FmtBase() {
         val name = fields[2].trim()
         val domain = fields[3].trim()
         val publicKey = fields[11].trim()
-        if (name.isEmpty() || domain.isEmpty() || publicKey.isEmpty()) return null
+        if (name.isEmpty() || domain.isEmpty() || (engine != DnsttFmt.ENGINE_SLIPSTREAM && publicKey.isEmpty())) return null
 
         val transport = fields.getOrNull(22)?.trim()?.lowercase()
             ?.takeIf { it.isNotEmpty() } ?: "udp"
@@ -113,23 +121,41 @@ object SlipNetFmt : FmtBase() {
 
         val profile = ProfileItem.create(EConfigType.DNSTT).also {
             it.remarks = name
-            // Both plain DNSTT and NoizDNS SlipNet records use the NoizDNS
-            // core: its plain mode retains DNSTT compatibility and also
-            // implements authoritative and multi-resolver behavior.
-            it.dnsttEngine = DnsttFmt.ENGINE_NOIZDNS
+            // Each record keeps its actual protocol/engine instead of collapsing to NoizDNS.
+            it.dnsttEngine = engine
             it.dnsttTransport = transport
             it.dnsttResolver = resolver
+            it.dnsttResolverAuthorities = resolverAuthorities.takeIf { flags ->
+                flags.isNotEmpty() && flags.size == resolver.split(',').size
+            }?.joinToString(",") { flag -> if (flag) "1" else "0" }
             it.dnsttDomain = domain
             it.dnsttPublicKey = publicKey
             it.dnsttUtls = DnsttFmt.DEFAULT_UTLS
             // The ordinary engine switch is pool-wide. Infer it only when
             // every marker agrees; mixed markers stay in the profile and are
             // handled by the per-resolver composite at process start.
-            it.dnsttAuthoritative = fields.getOrNull(27) == "1" ||
+            it.dnsttAuthoritative = (engine == DnsttFmt.ENGINE_SLIPSTREAM && fields.getOrNull(5) == "1") ||
+                fields.getOrNull(27) == "1" ||
                 (resolverAuthorities.isNotEmpty() && resolverAuthorities.all { flag -> flag })
             it.dnsttNoiz = isNoiz
             it.dnsttStealth = isNoiz && fields.getOrNull(38) == "1"
             it.dnsttMaxPayload = fields.getOrNull(39)?.toIntOrNull()?.coerceIn(0, 4096) ?: 0
+            if (engine == DnsttFmt.ENGINE_SLIPSTREAM) {
+                it.slipstreamKeepAlive = fields.getOrNull(6)?.toIntOrNull() ?: 5_000
+                it.slipstreamCongestionControl = fields.getOrNull(7)?.trim()?.lowercase()?.ifEmpty { "bbr" } ?: "bbr"
+                it.slipstreamGsoEnabled = fields.getOrNull(10) == "1"
+            }
+            if (engine == DnsttFmt.ENGINE_VAYDNS) {
+                it.vaydnsDnsttCompat = fields.getOrNull(41) == "1"
+                it.vaydnsRecordType = fields.getOrNull(42)?.trim()?.ifEmpty { "txt" } ?: "txt"
+                it.vaydnsMaxQnameLen = fields.getOrNull(43)?.toIntOrNull() ?: 101
+                it.vaydnsRps = fields.getOrNull(44)?.toDoubleOrNull() ?: 0.0
+                it.vaydnsIdleTimeout = fields.getOrNull(45)?.toIntOrNull() ?: 0
+                it.vaydnsKeepAlive = fields.getOrNull(46)?.toIntOrNull() ?: 0
+                it.vaydnsUdpTimeout = fields.getOrNull(47)?.toIntOrNull() ?: 0
+                it.vaydnsMaxNumLabels = fields.getOrNull(48)?.toIntOrNull() ?: 0
+                it.vaydnsClientIdSize = fields.getOrNull(49)?.toIntOrNull() ?: 0
+            }
             it.dnsttResolverMode = fields.getOrNull(60)?.trim()?.lowercase()
                 ?.takeIf { mode -> mode == "fanout" || mode == "roundrobin" } ?: "fanout"
             it.dnsttRrSpreadCount = fields.getOrNull(61)?.toIntOrNull()?.coerceIn(1, 5) ?: 3
@@ -194,7 +220,7 @@ object SlipNetFmt : FmtBase() {
         val authoritativeFlags: List<Boolean>,
     )
 
-    /** Keeps each SlipNet host:port:authoritative marker in the canonical profile. */
+    /** Returns printable host:port endpoints and keeps each authority flag as separate metadata. */
     private fun canonicalResolvers(raw: String, transport: String): CanonicalResolvers? {
         if (raw.isBlank()) return null
         val result = mutableListOf<String>()
@@ -215,7 +241,7 @@ object SlipNetFmt : FmtBase() {
                         (pieces.size == 3 && pieces[2] !in setOf("0", "1"))) return null
                     val authoritative = pieces.getOrNull(2) == "1"
                     authoritativeFlags += authoritative
-                    "[$host]:${dnsPort(port, transport)}:${if (authoritative) "1" else "0"}"
+                    "[$host]:${dnsPort(port, transport)}"
                 }
                 else -> {
                     val pieces = value.split(':')
@@ -226,7 +252,7 @@ object SlipNetFmt : FmtBase() {
                         (pieces.size == 3 && pieces[2] !in setOf("0", "1"))) return null
                     val authoritative = pieces.getOrNull(2) == "1"
                     authoritativeFlags += authoritative
-                    "$host:${dnsPort(port, transport)}:${if (authoritative) "1" else "0"}"
+                    "$host:${dnsPort(port, transport)}"
                 }
             }
             result += hostPort

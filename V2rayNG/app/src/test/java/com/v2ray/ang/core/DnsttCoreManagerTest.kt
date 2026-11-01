@@ -69,8 +69,9 @@ class DnsttCoreManagerTest {
     @Test
     fun mixedResolverModesReachTheCompositeWithoutInvalidDnsSuffixes() {
         val noiz = core.copy(
-            engine = DnsttFmt.ENGINE_NOIZDNS,
-            resolver = "1.1.1.1:53:0,9.9.9.9:53:1",
+            engine = DnsttFmt.ENGINE_DNSTT,
+            resolver = "1.1.1.1:53,9.9.9.9:53",
+            resolverAuthorities = listOf(false, true),
             authoritative = false,
             noiz = true,
         )
@@ -101,6 +102,65 @@ class DnsttCoreManagerTest {
         assertEquals(18_001, chained.port)
         assertEquals(18_002, chained.tunnelPort)
         assertFalse(arguments.any { it.contains("test-user") || it.contains("test-password") })
+    }
+
+    @Test
+    fun vaydnsUsesRawOrSocksBridgeListenersWithoutLeakingCredentialsIntoArgv() {
+        val authenticated = core.copy(
+            engine = DnsttFmt.ENGINE_VAYDNS,
+            resolver = "1.1.1.1:53,9.9.9.9:53",
+            socksUsername = "secret-user",
+            socksPassword = "secret-pass",
+            vaydns = VayDnsConfig(dnsttCompat = true, recordType = "cname", maxQnameLen = 120, rps = 20.0),
+        )
+        val arguments = DnsttCoreManager.processArguments(File("/data/app/lib/libvaydns.so"), authenticated, "@omni-test")
+        assertTrue("-udp=1.1.1.1:53,9.9.9.9:53" in arguments)
+        assertTrue("-dnstt-compat" in arguments)
+        assertTrue("-record-type=cname" in arguments)
+        assertTrue("-max-qname-len=120" in arguments)
+        assertTrue("-listen=127.0.0.1:18002" in arguments)
+        assertTrue("-socks-listen=127.0.0.1:18001" in arguments)
+        assertTrue("-fd-control-unix-socket=@omni-test" in arguments)
+        assertFalse(arguments.any { it.contains("secret-user") || it.contains("secret-pass") })
+
+        val standalone = authenticated.copy(socksUsername = "", socksPassword = "")
+        val standaloneArguments = DnsttCoreManager.processArguments(File("/data/app/lib/libvaydns.so"), standalone, null)
+        assertEquals(18_002, standalone.enginePort)
+        assertEquals(listOf(18_001, 18_002), standalone.sessionPorts)
+        assertTrue("-listen=127.0.0.1:18002" in standaloneArguments)
+        assertTrue("-socks-listen=127.0.0.1:18001" in standaloneArguments)
+        assertFalse("-raw-tcp" in standaloneArguments)
+
+        val chained = authenticated.copy(
+            socksUsername = "",
+            socksPassword = "",
+            ssh = DnsttSshConfig(username = "ssh-user", password = "ssh-pass"),
+        )
+        val sshArguments = DnsttCoreManager.processArguments(File("/data/app/lib/libvaydns.so"), chained, null)
+        assertTrue("-raw-tcp" in sshArguments)
+        assertTrue("-listen=127.0.0.1:18002" in sshArguments)
+        assertFalse(sshArguments.any { it.startsWith("-socks-listen=") })
+    }
+
+    @Test
+    fun slipstreamArgumentsUseRealQuicCliAndSeparateAuthorityMetadata() {
+        val slipstream = core.copy(
+            engine = DnsttFmt.ENGINE_SLIPSTREAM,
+            publicKey = "",
+            resolver = "1.1.1.1:53,9.9.9.9:53",
+            resolverAuthorities = listOf(false, true),
+            slipstream = SlipstreamConfig(keepAliveIntervalMs = 4_000, congestionControl = "dcubic", gsoEnabled = true),
+        )
+        val arguments = DnsttCoreManager.processArguments(File("/data/app/lib/libslipstream.so"), slipstream, "@omni-test")
+        assertTrue("--tcp-listen-port=18002" in arguments)
+        assertTrue("--resolver=1.1.1.1:53" in arguments)
+        assertTrue("--authoritative=9.9.9.9:53" in arguments)
+        assertTrue("--congestion-control=dcubic" in arguments)
+        assertTrue("--keep-alive-interval=4000" in arguments)
+        assertTrue("--gso" in arguments)
+        assertFalse(arguments.any { it.startsWith("-pubkey=") })
+        assertFalse(arguments.any { it.startsWith("-fd-control-unix-socket=") })
+        assertFalse(arguments.any { it.contains(":53:0") || it.contains(":53:1") })
     }
 
     @Test

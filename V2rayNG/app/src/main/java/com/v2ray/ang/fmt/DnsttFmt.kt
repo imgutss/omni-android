@@ -8,16 +8,20 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 /**
- * Omni's DNSTT profile format. The engine is the official dnstt-client; its
- * remote end must forward the tunnel to a no-auth SOCKS5 service for Omni's
- * loopback SOCKS outbound to be meaningful. The URI is Omni's own format, not
- * a claim that another application's DNSTT share link is identical.
+ * Omni's DNS tunnel profile format for DNSTT, NoizDNS, VayDNS, and Slipstream.
+ * A standalone remote end must forward the raw tunnel to a SOCKS5 service for
+ * Omni's loopback SOCKS outbound to be meaningful. The URI is Omni's own
+ * format, not a claim that another application's share link is identical.
  */
 object DnsttFmt : FmtBase() {
     const val DEFAULT_UTLS = "4*random,3*Firefox_120,1*Firefox_105,3*Chrome_120,1*Chrome_102,1*iOS_14,1*iOS_13"
     const val ENGINE_OFFICIAL = "official"
     const val ENGINE_NOIZDNS = "noizdns"
+    const val ENGINE_DNSTT = "dnstt"
+    const val ENGINE_VAYDNS = "vaydns"
+    const val ENGINE_SLIPSTREAM = "slipstream"
     private const val DEFAULT_REMARKS = "DNSTT"
+    private val VAY_RECORD_TYPES = setOf("txt", "cname", "a", "aaaa", "mx", "ns", "srv", "null", "caa")
 
     enum class Transport(val type: String, val defaultPort: Int) {
         DOH("doh", 443), DOT("dot", 853), UDP("udp", 53), TCP("tcp", 53);
@@ -48,7 +52,7 @@ object DnsttFmt : FmtBase() {
             ?: return null
         val resolver = query["resolver"] ?: query[transport.type] ?: return null
         val domain = query["domain"] ?: query["d"] ?: return null
-        val publicKey = query["pubkey"] ?: query["key"] ?: return null
+        val publicKey = query["pubkey"] ?: query["key"] ?: ""
         val remarks = uri.rawFragment
             ?.let { runCatching { URLDecoder.decode(it, StandardCharsets.UTF_8.name()) }.getOrNull() }
             ?.trim().takeUnless { it.isNullOrEmpty() } ?: DEFAULT_REMARKS
@@ -60,6 +64,7 @@ object DnsttFmt : FmtBase() {
             it.remarks = remarks
             it.dnsttTransport = transport.type
             it.dnsttResolver = resolver
+            it.dnsttResolverAuthorities = query["resolverAuthorities"]
             it.dnsttDomain = domain
             it.dnsttPublicKey = publicKey
             it.dnsttUtls = query["utls"] ?: DEFAULT_UTLS
@@ -68,6 +73,18 @@ object DnsttFmt : FmtBase() {
             it.dnsttNoiz = query["noiz"]?.let { value -> value == "1" || value.equals("true", true) }
             it.dnsttStealth = query["stealth"]?.let { value -> value == "1" || value.equals("true", true) }
             it.dnsttMaxPayload = query["maxPayload"]?.toIntOrNull()
+            it.vaydnsDnsttCompat = query["vayCompat"]?.let { value -> value == "1" || value.equals("true", true) }
+            it.vaydnsRecordType = query["vayRecordType"]
+            it.vaydnsMaxQnameLen = query["vayMaxQnameLen"]?.toIntOrNull()
+            it.vaydnsRps = query["vayRps"]?.toDoubleOrNull()
+            it.vaydnsIdleTimeout = query["vayIdleTimeout"]?.toIntOrNull()
+            it.vaydnsKeepAlive = query["vayKeepAlive"]?.toIntOrNull()
+            it.vaydnsUdpTimeout = query["vayUdpTimeout"]?.toIntOrNull()
+            it.vaydnsMaxNumLabels = query["vayMaxNumLabels"]?.toIntOrNull()
+            it.vaydnsClientIdSize = query["vayClientIdSize"]?.toIntOrNull()
+            it.slipstreamKeepAlive = query["slipKeepAlive"]?.toIntOrNull()
+            it.slipstreamCongestionControl = query["slipCc"]
+            it.slipstreamGsoEnabled = query["slipGso"]?.let { value -> value == "1" || value.equals("true", true) }
             it.dnsttResolverMode = query["resolverMode"]
             it.dnsttRrSpreadCount = query["rrSpread"]?.toIntOrNull()
             it.dnsttSocksUsername = query["socksUsername"]
@@ -99,10 +116,27 @@ object DnsttFmt : FmtBase() {
             "utls" to normalized.dnsttUtls.orEmpty(),
         )
         if (normalized.dnsttEngine != ENGINE_OFFICIAL) query["engine"] = normalized.dnsttEngine.orEmpty()
+        normalized.dnsttResolverAuthorities?.takeIf { it.isNotBlank() }?.let { query["resolverAuthorities"] = it }
         if (normalized.dnsttAuthoritative == true) query["authoritative"] = "1"
         if (normalized.dnsttNoiz == true) query["noiz"] = "1"
         if (normalized.dnsttStealth == true) query["stealth"] = "1"
         normalized.dnsttMaxPayload?.takeIf { it > 0 }?.let { query["maxPayload"] = it.toString() }
+        if (normalized.dnsttEngine == ENGINE_VAYDNS) {
+            if (normalized.vaydnsDnsttCompat == true) query["vayCompat"] = "1"
+            query["vayRecordType"] = normalized.vaydnsRecordType ?: "txt"
+            query["vayMaxQnameLen"] = (normalized.vaydnsMaxQnameLen ?: 101).toString()
+            query["vayRps"] = (normalized.vaydnsRps ?: 0.0).toString()
+            query["vayIdleTimeout"] = (normalized.vaydnsIdleTimeout ?: 0).toString()
+            query["vayKeepAlive"] = (normalized.vaydnsKeepAlive ?: 0).toString()
+            query["vayUdpTimeout"] = (normalized.vaydnsUdpTimeout ?: 0).toString()
+            query["vayMaxNumLabels"] = (normalized.vaydnsMaxNumLabels ?: 0).toString()
+            query["vayClientIdSize"] = (normalized.vaydnsClientIdSize ?: 0).toString()
+        }
+        if (normalized.dnsttEngine == ENGINE_SLIPSTREAM) {
+            query["slipKeepAlive"] = (normalized.slipstreamKeepAlive ?: 5_000).toString()
+            query["slipCc"] = normalized.slipstreamCongestionControl ?: "bbr"
+            if (normalized.slipstreamGsoEnabled == true) query["slipGso"] = "1"
+        }
         normalized.dnsttResolverMode?.takeIf { it.isNotBlank() }?.let { query["resolverMode"] = it }
         normalized.dnsttRrSpreadCount?.takeIf { it > 0 }?.let { query["rrSpread"] = it.toString() }
         normalized.dnsttSocksUsername?.takeIf { it.isNotEmpty() }?.let { query["socksUsername"] = it }
@@ -154,8 +188,9 @@ object DnsttFmt : FmtBase() {
                 Problem.DOMAIN_INVALID
             }
         val engine = config.dnsttEngine?.trim()?.lowercase()?.ifEmpty { ENGINE_OFFICIAL } ?: ENGINE_OFFICIAL
-        if (engine != ENGINE_OFFICIAL && engine != ENGINE_NOIZDNS) return Problem.TRANSPORT_INVALID
+        if (engine !in setOf(ENGINE_OFFICIAL, ENGINE_NOIZDNS, ENGINE_DNSTT, ENGINE_VAYDNS, ENGINE_SLIPSTREAM)) return Problem.TRANSPORT_INVALID
         val transport = Transport.from(config.dnsttTransport) ?: return Problem.TRANSPORT_INVALID
+        if (engine == ENGINE_SLIPSTREAM && transport != Transport.UDP) return Problem.TRANSPORT_INVALID
         val noiz = config.dnsttNoiz == true
         val stealth = config.dnsttStealth == true
         val maxPayload = config.dnsttMaxPayload ?: 0
@@ -174,11 +209,41 @@ object DnsttFmt : FmtBase() {
         ) return Problem.TRANSPORT_INVALID
         val rawResolver = config.dnsttResolver?.trim().orEmpty()
         if (rawResolver.isEmpty()) return Problem.RESOLVER_MISSING
-        val resolver = normalizeResolver(transport, rawResolver, allowMultiple = engine == ENGINE_NOIZDNS)
+        val resolver = normalizeResolver(transport, rawResolver, allowMultiple = engine != ENGINE_OFFICIAL)
             ?: return Problem.RESOLVER_INVALID
+        val resolverCount = resolver.split(',').size
+        val storedAuthorities = authorityFlags(config.dnsttResolverAuthorities, resolverCount)
+        val legacyAuthorities = resolverAuthorities(rawResolver).takeIf { it.size == resolverCount }
         val key = config.dnsttPublicKey?.trim().orEmpty()
-        if (key.isEmpty()) return Problem.PUBLIC_KEY_MISSING
-        if (!key.matches(Regex("(?i)[0-9a-f]{64}"))) return Problem.PUBLIC_KEY_INVALID
+        if (engine != ENGINE_SLIPSTREAM && key.isEmpty()) return Problem.PUBLIC_KEY_MISSING
+        if (engine != ENGINE_SLIPSTREAM && !key.matches(Regex("(?i)[0-9a-f]{64}"))) return Problem.PUBLIC_KEY_INVALID
+
+        val vayRecordType = config.vaydnsRecordType?.trim()?.lowercase()?.ifEmpty { "txt" } ?: "txt"
+        val vayMaxQname = config.vaydnsMaxQnameLen ?: 101
+        val vayRps = config.vaydnsRps ?: 0.0
+        val vayIdle = config.vaydnsIdleTimeout ?: 0
+        val vayKeepAlive = config.vaydnsKeepAlive ?: 0
+        val vayUdpTimeout = config.vaydnsUdpTimeout ?: 0
+        val vayMaxLabels = config.vaydnsMaxNumLabels ?: 0
+        val vayClientId = config.vaydnsClientIdSize ?: 0
+        if (engine == ENGINE_VAYDNS) {
+            if (noiz || stealth || vayRecordType !in VAY_RECORD_TYPES ||
+                vayMaxQname !in 0..253 || !vayRps.isFinite() || vayRps < 0.0 || vayRps > 1_000_000.0 ||
+                vayIdle !in 0..86_400 || vayKeepAlive !in 0..86_400 || vayUdpTimeout !in 0..600_000 ||
+                vayMaxLabels !in 0..127 || vayClientId !in 0..32 ||
+                (maxPayload != 0 && maxPayload < 25)
+            ) return Problem.TRANSPORT_INVALID
+        }
+        val slipKeepAlive = config.slipstreamKeepAlive ?: 5_000
+        val slipCongestionControl = config.slipstreamCongestionControl?.trim()?.lowercase()?.ifEmpty { "bbr" } ?: "bbr"
+        if (engine == ENGINE_SLIPSTREAM && (noiz || stealth || maxPayload != 0 ||
+                slipKeepAlive !in 100..60_000 || slipCongestionControl !in setOf("bbr", "dcubic"))
+        ) return Problem.TRANSPORT_INVALID
+        if (engine != ENGINE_OFFICIAL && (
+                config.dnsttSocksUsername.orEmpty().toByteArray(Charsets.UTF_8).size > 255 ||
+                config.dnsttSocksPassword.orEmpty().toByteArray(Charsets.UTF_8).size > 255)
+        ) return Problem.TRANSPORT_INVALID
+
         val utls = config.dnsttUtls?.trim().orEmpty().ifEmpty { DEFAULT_UTLS }
         if (utls.length > 512 || utls.any { it == '\n' || it == '\r' || it == '\u0000' }) {
             return Problem.UTLS_INVALID
@@ -187,7 +252,7 @@ object DnsttFmt : FmtBase() {
         val sshEnabled = config.dnsttSshEnabled == true
         // The official client exposes SOCKS5, not the raw TCP stream that
         // JSch needs. Never let the editor save that incompatible pairing.
-        if (sshEnabled && engine != ENGINE_NOIZDNS) return Problem.TRANSPORT_INVALID
+        if (sshEnabled && engine == ENGINE_OFFICIAL) return Problem.TRANSPORT_INVALID
         if (sshEnabled) {
             val sshUsername = config.dnsttSshUsername?.trim().orEmpty()
             val sshPassword = config.dnsttSshPassword.orEmpty()
@@ -226,15 +291,54 @@ object DnsttFmt : FmtBase() {
         config.dnsttDomain = domain
         config.dnsttTransport = transport.type
         config.dnsttResolver = resolver
-        config.dnsttPublicKey = key.lowercase()
+        config.dnsttResolverAuthorities = if (engine == ENGINE_OFFICIAL || transport == Transport.DOH) {
+            null
+        } else {
+            (storedAuthorities ?: legacyAuthorities)?.joinToString(",") { if (it) "1" else "0" }
+        }
+        config.dnsttPublicKey = if (engine == ENGINE_SLIPSTREAM) "" else key.lowercase()
         config.dnsttUtls = utls
         config.dnsttEngine = engine
         config.dnsttAuthoritative = config.dnsttAuthoritative == true
         config.dnsttNoiz = noiz
         config.dnsttStealth = stealth
-        config.dnsttMaxPayload = maxPayload
-        config.dnsttResolverMode = resolverMode?.takeIf { it.isNotBlank() } ?: "fanout"
-        config.dnsttRrSpreadCount = rrSpread
+        config.dnsttMaxPayload = if (engine == ENGINE_SLIPSTREAM) 0 else maxPayload
+        config.dnsttResolverMode = if (engine == ENGINE_SLIPSTREAM) "fanout" else resolverMode?.takeIf { it.isNotBlank() } ?: "fanout"
+        config.dnsttRrSpreadCount = if (engine == ENGINE_SLIPSTREAM) 3 else rrSpread
+        if (engine == ENGINE_SLIPSTREAM) {
+            config.slipstreamKeepAlive = slipKeepAlive
+            config.slipstreamCongestionControl = slipCongestionControl
+            config.slipstreamGsoEnabled = config.slipstreamGsoEnabled == true
+            config.dnsttNoiz = false
+            config.dnsttStealth = false
+        } else {
+            config.slipstreamKeepAlive = null
+            config.slipstreamCongestionControl = null
+            config.slipstreamGsoEnabled = null
+        }
+        if (engine == ENGINE_VAYDNS) {
+            config.vaydnsDnsttCompat = config.vaydnsDnsttCompat == true
+            config.vaydnsRecordType = vayRecordType
+            config.vaydnsMaxQnameLen = vayMaxQname
+            config.vaydnsRps = vayRps
+            config.vaydnsIdleTimeout = vayIdle
+            config.vaydnsKeepAlive = vayKeepAlive
+            config.vaydnsUdpTimeout = vayUdpTimeout
+            config.vaydnsMaxNumLabels = vayMaxLabels
+            config.vaydnsClientIdSize = vayClientId
+            config.dnsttNoiz = false
+            config.dnsttStealth = false
+        } else {
+            config.vaydnsDnsttCompat = null
+            config.vaydnsRecordType = null
+            config.vaydnsMaxQnameLen = null
+            config.vaydnsRps = null
+            config.vaydnsIdleTimeout = null
+            config.vaydnsKeepAlive = null
+            config.vaydnsUdpTimeout = null
+            config.vaydnsMaxNumLabels = null
+            config.vaydnsClientIdSize = null
+        }
         config.dnsttSshEnabled = sshEnabled
         config.server = domain
         config.serverPort = null
@@ -280,15 +384,11 @@ object DnsttFmt : FmtBase() {
         return normalized.joinToString(",")
     }
 
-    /**
-     * NoizDNS profiles may retain SlipNet's optional :0/:1 authority suffix.
-     * It is profile metadata, not part of the DNS endpoint passed to Go.
-     */
+    /** Accepts a legacy authority suffix but returns only the printable DNS endpoint. */
     private fun normalizeNoizEndpoint(value: String, defaultPort: Int): String? {
         val authority = authoritySuffix(value)
         val endpoint = if (authority == null) value else value.removeSuffix(":$authority")
-        val normalized = normalizeEndpoint(endpoint, defaultPort) ?: return null
-        return if (authority == null) normalized else "$normalized:$authority"
+        return normalizeEndpoint(endpoint, defaultPort)
     }
 
     /** Strips profile authority suffixes before constructing engine arguments. */
@@ -297,7 +397,23 @@ object DnsttFmt : FmtBase() {
         if (authority == null) entry else entry.removeSuffix(":$authority")
     }
 
-    /** Returns the original per-resolver modes, or an empty list for legacy unmarked profiles. */
+    /** Reads separate authority metadata, migrating legacy endpoint markers when necessary. */
+    internal fun resolverAuthorities(config: ProfileItem): List<Boolean> {
+        val raw = config.dnsttResolver.orEmpty()
+        val count = engineResolver(raw).split(',').size
+        return authorityFlags(config.dnsttResolverAuthorities, count)
+            ?: resolverAuthorities(raw).takeIf { it.size == count }
+            ?: emptyList()
+    }
+
+    private fun authorityFlags(value: String?, expectedCount: Int): List<Boolean>? {
+        if (value.isNullOrBlank()) return null
+        val flags = value.split(',')
+        if (flags.size != expectedCount || flags.any { it != "0" && it != "1" }) return null
+        return flags.map { it == "1" }
+    }
+
+    /** Returns legacy per-resolver modes, or an empty list for unmarked/mixed profiles. */
     internal fun resolverAuthorities(value: String): List<Boolean> {
         val values = value.split(',')
         if (values.isEmpty()) return emptyList()

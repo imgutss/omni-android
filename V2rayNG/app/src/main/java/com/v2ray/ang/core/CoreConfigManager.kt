@@ -90,12 +90,22 @@ object CoreConfigManager {
      * The core flow is reused, then non-essential sections are removed. A configuration that runs
      * on an Aether core dials it where it listens, whether the session's or a test's runs there.
      */
-    fun getV2rayConfig4Speedtest(context: Context, guid: String): ConfigResult {
+    fun getV2rayConfig4Speedtest(context: Context, guid: String): ConfigResult =
+        getV2rayConfig4SpeedtestInternal(context, guid, null)
+
+    /** In-memory variant used by DNS E2E; the candidate is never inserted into profile storage. */
+    fun getV2rayConfig4Speedtest(context: Context, guid: String, profile: ProfileItem): ConfigResult =
+        getV2rayConfig4SpeedtestInternal(context, guid, profile)
+
+    private fun getV2rayConfig4SpeedtestInternal(context: Context, guid: String, profile: ProfileItem?): ConfigResult {
         try {
             // PattNG: the profiles routing rules send to are left out, which a test does not measure and whose chains
             // could lend the core under test an exit-node of theirs.
-            val configContext = CoreConfigContextBuilder.build(context, guid, routingTargets = false)
-                ?: return ConfigResult(
+            val configContext = if (profile == null) {
+                CoreConfigContextBuilder.build(context, guid, routingTargets = false)
+            } else {
+                CoreConfigContextBuilder.build(context, guid, profile, routingTargets = false)
+            } ?: return ConfigResult(
                     status = false,
                     guid = guid,
                     errorMessage = "Failed to build config context"

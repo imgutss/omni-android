@@ -29,12 +29,15 @@ import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
-/** Owns the official DNSTT or SlipNet-compatible NoizDNS process for the selected profile. */
+/** Owns the selected DNSTT, NoizDNS, VayDNS, or Slipstream process and its local layers. */
 object DnsttCoreManager {
     private const val OFFICIAL_BINARY_NAME = "libdnstt.so"
     private const val NOIZDNS_BINARY_NAME = "libnoizdns.so"
+    private const val VAYDNS_BINARY_NAME = "libvaydns.so"
+    private const val SLIPSTREAM_BINARY_NAME = "libslipstream.so"
     private const val SESSION_ENV = "OMNI_DNSTT_SESSION"
     private const val KEY_ENV = "OMNI_DNSTT_KEY"
+    private const val PORT_ENV = "OMNI_DNSTT_ENGINE_PORT"
     private const val SOCKS_USER_ENV = "OMNI_DNSTT_SOCKS_USER"
     private const val SOCKS_PASSWORD_ENV = "OMNI_DNSTT_SOCKS_PASSWORD"
     private const val READY_POLL_MS = 250L
@@ -89,6 +92,8 @@ object DnsttCoreManager {
         val expected = listOf(
             binary(context, DnsttFmt.ENGINE_OFFICIAL).absolutePath,
             binary(context, DnsttFmt.ENGINE_NOIZDNS).absolutePath,
+            binary(context, DnsttFmt.ENGINE_VAYDNS).absolutePath,
+            binary(context, DnsttFmt.ENGINE_SLIPSTREAM).absolutePath,
         )
         File("/proc").listFiles()?.forEach { entry ->
             val pid = entry.name.toIntOrNull() ?: return@forEach
@@ -97,7 +102,10 @@ object DnsttCoreManager {
             if (argv.firstOrNull() !in expected) return@forEach
             val environment = readProcWords(File(entry, "environ")).orEmpty()
             if ("$SESSION_ENV=1" !in environment) return@forEach
-            val port = argv.lastOrNull()?.substringAfterLast(':')?.toIntOrNull() ?: return@forEach
+            val port = environment.firstOrNull { it.startsWith("$PORT_ENV=") }
+                ?.substringAfter('=')?.toIntOrNull()
+                ?: argv.lastOrNull()?.substringAfterLast(':')?.toIntOrNull()
+                ?: return@forEach
             val key = environment.firstOrNull { it.startsWith("$KEY_ENV=") }?.substringAfter('=')
             return LiveProcess(pid, port, key)
         }
@@ -123,7 +131,12 @@ object DnsttCoreManager {
     }
 
     private fun binary(context: Context, engine: String = DnsttFmt.ENGINE_OFFICIAL): File {
-        val name = if (engine == DnsttFmt.ENGINE_NOIZDNS) NOIZDNS_BINARY_NAME else OFFICIAL_BINARY_NAME
+        val name = when (engine) {
+            DnsttFmt.ENGINE_NOIZDNS, DnsttFmt.ENGINE_DNSTT -> NOIZDNS_BINARY_NAME
+            DnsttFmt.ENGINE_VAYDNS -> VAYDNS_BINARY_NAME
+            DnsttFmt.ENGINE_SLIPSTREAM -> SLIPSTREAM_BINARY_NAME
+            else -> OFFICIAL_BINARY_NAME
+        }
         return File(context.applicationInfo.nativeLibraryDir, name)
     }
 
@@ -173,7 +186,7 @@ object DnsttCoreManager {
         val appContext = context.applicationContext
         val task = FutureTask(Callable<PreparedSession?> {
             reapStale(appContext)
-            val ports = if (core.ssh == null) listOf(core.port) else listOf(core.port, core.tunnelPort)
+            val ports = core.sessionPorts
             if (ports.all { available(it, content, reservedPorts) }) {
                 return@Callable PreparedSession(core, content)
             }
@@ -201,7 +214,7 @@ object DnsttCoreManager {
         repeat(64) {
             val candidate = runCatching { Utils.findRandomFreePort() }.getOrNull() ?: return@repeat
             if (candidate !in 1024..65534 || candidate == core.port || candidate == core.tunnelPort) return@repeat
-            val ports = if (core.ssh == null) listOf(candidate) else listOf(candidate, candidate + 1)
+            val ports = core.copy(port = candidate).sessionPorts
             if (ports.all { available(it, content, reservedPorts) }) return candidate
         }
         return null
@@ -264,6 +277,7 @@ object DnsttCoreManager {
         current.stopRequested.set(true)
         session = null
         DnsttSshTunnel.stop(current.core.key)
+        SlipstreamSocksBridge.stop(current.core.key)
         lifecycle.execute { finish(current, notifyExit = false) }
     }
 
@@ -287,7 +301,14 @@ object DnsttCoreManager {
                     put(KEY_ENV, target.core.key)
                     put("HOME", directory.absolutePath)
                     put("TMPDIR", target.context.cacheDir.absolutePath)
-                    if (target.core.ssh == null && target.core.socksUsername.isNotEmpty()) {
+                    put(PORT_ENV, target.core.enginePort.toString())
+                    target.protectServer?.configAddress?.let { address ->
+                        if (target.core.engine == DnsttFmt.ENGINE_SLIPSTREAM) {
+                            put("OMNI_FD_CONTROL_UNIX_SOCKET", address)
+                        }
+                    }
+                    if (target.core.engine != DnsttFmt.ENGINE_SLIPSTREAM &&
+                        target.core.ssh == null && target.core.socksUsername.isNotEmpty()) {
                         put(SOCKS_USER_ENV, target.core.socksUsername)
                         put(SOCKS_PASSWORD_ENV, target.core.socksPassword)
                     }
@@ -304,6 +325,14 @@ object DnsttCoreManager {
                 }
                 finish(target, notifyExit = true)
             }
+            if (target.core.ssh == null && target.core.engine == DnsttFmt.ENGINE_SLIPSTREAM) {
+                SlipstreamSocksBridge.start(target.core) { error ->
+                    LogUtil.e(AppConfig.TAG, "Slipstream SOCKS bridge failed", error)
+                    lifecycle.execute {
+                        if (session === target && !target.stopRequested.get()) finish(target, notifyExit = true)
+                    }
+                }
+            }
             if (target.core.ssh != null) {
                 DnsttSshTunnel.start(target.core) { error ->
                     LogUtil.e(AppConfig.TAG, "DNSTT+SSH: chained session failed", error)
@@ -312,7 +341,7 @@ object DnsttCoreManager {
                     }
                 }
             }
-            LogUtil.i(AppConfig.TAG, "DNSTT: ${target.core.engine} core started on ${AppConfig.LOOPBACK}:${target.core.tunnelPort}")
+            LogUtil.i(AppConfig.TAG, "DNSTT: ${target.core.engine} core started on ${AppConfig.LOOPBACK}:${target.core.enginePort}")
             if (session !== target) finish(target, notifyExit = false)
         } catch (e: Exception) {
             LogUtil.e(AppConfig.TAG, "DNSTT: core start failed", e)
@@ -328,39 +357,86 @@ object DnsttCoreManager {
 
     internal fun processArguments(binary: File, core: DnsttCore, protectAddress: String?): List<String> = buildList {
         add(binary.absolutePath)
-        if (core.engine == DnsttFmt.ENGINE_NOIZDNS) {
-            // The Go client takes host:port endpoints, not SlipNet's profile
-            // authority suffixes. Keep those suffixes in the saved profile and
-            // Omni URI, and pass their values separately to the mixed-tunnel
-            // composite; only the explicit/uniform pool mode becomes -authoritative.
-            val engineResolver = DnsttFmt.engineResolver(core.resolver)
-            val resolverAuthorities = DnsttFmt.resolverAuthorities(core.resolver)
-            if (resolverAuthorities.isNotEmpty()) {
-                add("-resolver-authoritative=${resolverAuthorities.joinToString(",") { if (it) "1" else "0" }}")
+        when (core.engine) {
+            DnsttFmt.ENGINE_SLIPSTREAM -> {
+                add("--tcp-listen-host=${AppConfig.LOOPBACK}")
+                add("--tcp-listen-port=${core.enginePort}")
+                add("--domain=${core.domain}")
+                add("--congestion-control=${core.slipstream.congestionControl}")
+                add("--keep-alive-interval=${core.slipstream.keepAliveIntervalMs}")
+                if (core.slipstream.gsoEnabled) add("--gso")
+                val resolvers = core.resolver.split(',')
+                val flags = when {
+                    core.resolverAuthorities.size == resolvers.size -> core.resolverAuthorities
+                    core.authoritative -> List(resolvers.size) { true }
+                    else -> List(resolvers.size) { false }
+                }
+                resolvers.forEachIndexed { index, resolver ->
+                    add(if (flags[index]) "--authoritative=$resolver" else "--resolver=$resolver")
+                }
             }
-            if (core.ssh != null) add("-raw-tcp")
-            when (core.transport) {
-                DnsttFmt.Transport.DOH -> add("-doh=$engineResolver")
-                DnsttFmt.Transport.DOT -> add("-dot=$engineResolver")
-                DnsttFmt.Transport.UDP -> add("-udp=$engineResolver")
-                DnsttFmt.Transport.TCP -> add("-tcp=$engineResolver")
+            DnsttFmt.ENGINE_VAYDNS -> {
+                when (core.transport) {
+                    DnsttFmt.Transport.DOH -> add("-doh=${core.resolver}")
+                    DnsttFmt.Transport.DOT -> add("-dot=${core.resolver}")
+                    DnsttFmt.Transport.UDP -> add("-udp=${core.resolver}")
+                    DnsttFmt.Transport.TCP -> add("-tcp=${core.resolver}")
+                }
+                add("-pubkey=${core.publicKey}")
+                if (core.utls.isNotBlank()) add("-utls=${core.utls}")
+                add("-domain=${core.domain}")
+                add("-listen=${AppConfig.LOOPBACK}:${core.enginePort}")
+                if (core.ssh != null) add("-raw-tcp")
+                if (core.ssh == null) {
+                    add("-socks-listen=${AppConfig.LOOPBACK}:${core.port}")
+                }
+                if (core.vaydns.dnsttCompat) add("-dnstt-compat")
+                add("-record-type=${core.vaydns.recordType}")
+                add("-max-qname-len=${core.vaydns.maxQnameLen}")
+                add("-rps=${core.vaydns.rps}")
+                if (core.vaydns.idleTimeoutSeconds > 0) add("-idle-timeout=${core.vaydns.idleTimeoutSeconds}")
+                if (core.vaydns.keepAliveSeconds > 0) add("-keep-alive=${core.vaydns.keepAliveSeconds}")
+                if (core.vaydns.udpTimeoutMs > 0) add("-udp-timeout=${core.vaydns.udpTimeoutMs}")
+                if (core.vaydns.maxNumLabels > 0) add("-max-num-labels=${core.vaydns.maxNumLabels}")
+                if (core.vaydns.clientIdSize > 0) add("-clientid-size=${core.vaydns.clientIdSize}")
+                if (core.maxPayload > 0) add("-max-payload=${core.maxPayload}")
+                add("-resolver-mode=${core.resolverMode}")
+                add("-rr-spread=${core.rrSpreadCount}")
             }
-            add("-pubkey=${core.publicKey}")
-            if (core.utls.isNotBlank()) add("-utls=${core.utls}")
-            if (core.authoritative) add("-authoritative")
-            if (core.noiz) add("-noiz")
-            if (core.stealth) add("-stealth")
-            if (core.maxPayload > 0) add("-max-payload=${core.maxPayload}")
-            add("-resolver-mode=${core.resolverMode}")
-            add("-rr-spread=${core.rrSpreadCount}")
-        } else {
-            add("-${core.transport.type}=${core.resolver}")
-            add("-pubkey=${core.publicKey}")
-            if (core.utls.isNotBlank()) add("-utls=${core.utls}")
+            DnsttFmt.ENGINE_NOIZDNS, DnsttFmt.ENGINE_DNSTT -> {
+                val engineResolver = DnsttFmt.engineResolver(core.resolver)
+                if (core.resolverAuthorities.isNotEmpty()) {
+                    add("-resolver-authoritative=${core.resolverAuthorities.joinToString(",") { if (it) "1" else "0" }}")
+                }
+                if (core.ssh != null) add("-raw-tcp")
+                when (core.transport) {
+                    DnsttFmt.Transport.DOH -> add("-doh=$engineResolver")
+                    DnsttFmt.Transport.DOT -> add("-dot=$engineResolver")
+                    DnsttFmt.Transport.UDP -> add("-udp=$engineResolver")
+                    DnsttFmt.Transport.TCP -> add("-tcp=$engineResolver")
+                }
+                add("-pubkey=${core.publicKey}")
+                if (core.utls.isNotBlank()) add("-utls=${core.utls}")
+                if (core.authoritative) add("-authoritative")
+                if (core.noiz) add("-noiz")
+                if (core.stealth) add("-stealth")
+                if (core.maxPayload > 0) add("-max-payload=${core.maxPayload}")
+                add("-resolver-mode=${core.resolverMode}")
+                add("-rr-spread=${core.rrSpreadCount}")
+            }
+            else -> {
+                add("-${core.transport.type}=${core.resolver}")
+                add("-pubkey=${core.publicKey}")
+                if (core.utls.isNotBlank()) add("-utls=${core.utls}")
+            }
         }
-        if (protectAddress != null) add("-fd-control-unix-socket=$protectAddress")
-        add(core.domain)
-        add("${AppConfig.LOOPBACK}:${core.tunnelPort}")
+        if (protectAddress != null && core.engine != DnsttFmt.ENGINE_SLIPSTREAM) {
+            add("-fd-control-unix-socket=$protectAddress")
+        }
+        if (core.engine != DnsttFmt.ENGINE_VAYDNS && core.engine != DnsttFmt.ENGINE_SLIPSTREAM) {
+            add(core.domain)
+            add("${AppConfig.LOOPBACK}:${core.tunnelPort}")
+        }
     }
 
     private fun sessionDirectory(target: Session): File {
@@ -424,6 +500,7 @@ object DnsttCoreManager {
         }
         var stopped = true
         DnsttSshTunnel.stop(target.core.key)
+        SlipstreamSocksBridge.stop(target.core.key)
         try {
             stopped = target.process?.let(::endProcess) ?: true
         } catch (e: Exception) {
@@ -467,6 +544,8 @@ object DnsttCoreManager {
         val expected = listOf(
             binary(context, DnsttFmt.ENGINE_OFFICIAL).absolutePath,
             binary(context, DnsttFmt.ENGINE_NOIZDNS).absolutePath,
+            binary(context, DnsttFmt.ENGINE_VAYDNS).absolutePath,
+            binary(context, DnsttFmt.ENGINE_SLIPSTREAM).absolutePath,
         )
         val stale = mutableListOf<Int>()
         File("/proc").listFiles()?.forEach { entry ->

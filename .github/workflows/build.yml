@@ -73,7 +73,7 @@ jobs:
       uses: dtolnay/rust-toolchain@master
       with:
         toolchain: ${{ env.RUST_TOOLCHAIN }}
-        targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+        targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
 
     - name: Restore cached libaether
       id: cache-libaether-restore
@@ -173,6 +173,91 @@ jobs:
         path: ${{ github.workspace }}/libs-noizdns
         key: noizdns-${{ runner.os }}-${{ env.GO_VERSION }}-${{ hashFiles('compile-noizdns.sh', 'third_party/slipnet/noizdns/**', 'third_party/slipnet/dnstt/**') }}
 
+    - name: Restore cached VayDNS client
+      id: cache-vaydns-restore
+      uses: actions/cache/restore@v6
+      with:
+        path: ${{ github.workspace }}/libs-vaydns
+        key: vaydns-${{ runner.os }}-${{ env.GO_VERSION }}-${{ hashFiles('compile-vaydns.sh', 'third_party/vaydns/**') }}
+
+    - name: Build VayDNS client
+      if: steps.cache-vaydns-restore.outputs.cache-hit != 'true'
+      run: bash compile-vaydns.sh
+
+    - name: Test VayDNS packages
+      run: |
+        cd third_party/vaydns
+        GOTOOLCHAIN=local CGO_ENABLED=0 go test ./...
+
+    - name: Test VayDNS real raw and SOCKS loopback tunnels
+      run: bash test-vaydns-loopback.sh
+
+    - name: Save VayDNS client
+      if: steps.cache-vaydns-restore.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: ${{ github.workspace }}/libs-vaydns
+        key: vaydns-${{ runner.os }}-${{ env.GO_VERSION }}-${{ hashFiles('compile-vaydns.sh', 'third_party/vaydns/**') }}
+
+    - name: Install Slipstream native build tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends cmake ninja-build nasm
+
+    - name: Restore cached Slipstream client
+      id: cache-slipstream-restore
+      uses: actions/cache/restore@v6
+      with:
+        path: ${{ github.workspace }}/libs-slipstream
+        key: slipstream-${{ runner.os }}-${{ env.NDK_HOME }}-${{ steps.rust-toolchain.outputs.cachekey }}-${{ hashFiles('compile-slipstream.sh', 'third_party/slipstream-rust/**') }}
+
+    - name: Test Slipstream protocol crates
+      run: |
+        cd third_party/slipstream-rust
+        cargo test --locked -p slipstream-core -p slipstream-dns
+
+    - name: Build Slipstream client
+      if: steps.cache-slipstream-restore.outputs.cache-hit != 'true'
+      env:
+        CARGO_BUILD_JOBS: 2
+        RUSTFLAGS: -C link-arg=-Wl,-z,max-page-size=16384 -C link-arg=-Wl,-z,separate-loadable-segments
+      run: bash compile-slipstream.sh
+
+    - name: Audit VayDNS and Slipstream native binaries
+      run: |
+        READELF="$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+        audit_elf() {
+          local file="$1" expected_type="$2" expected_machine="$3" header alignments
+          test -s "$file"
+          header=$("$READELF" -h "$file")
+          if ! grep -Eq "Type:[[:space:]]+$expected_type" <<<"$header" || ! grep -Eq "Machine:[[:space:]]+$expected_machine" <<<"$header"; then
+            echo "::error::$file has the wrong ELF type or architecture"
+            return 1
+          fi
+          alignments=$("$READELF" -lW "$file" | awk '$1 == "LOAD" { print $NF }')
+          if [[ -z "$alignments" ]] || grep -Fvx '0x4000' <<<"$alignments" >/dev/null; then
+            echo "::error::$file does not use 16-KB LOAD alignment"
+            return 1
+          fi
+        }
+        for abi in arm64-v8a armeabi-v7a x86_64 x86; do
+          case "$abi" in
+            arm64-v8a) machine='AArch64' ;;
+            armeabi-v7a) machine='ARM' ;;
+            x86) machine='Intel 80386' ;;
+            x86_64) machine='Advanced Micro Devices X86-64' ;;
+          esac
+          audit_elf "libs-vaydns/$abi/libvaydns.so" EXEC "$machine"
+          audit_elf "libs-slipstream/$abi/libslipstream.so" DYN "$machine"
+        done
+
+    - name: Save Slipstream client
+      if: steps.cache-slipstream-restore.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: ${{ github.workspace }}/libs-slipstream
+        key: slipstream-${{ runner.os }}-${{ env.NDK_HOME }}-${{ steps.rust-toolchain.outputs.cachekey }}-${{ hashFiles('compile-slipstream.sh', 'third_party/slipstream-rust/**') }}
+
     # The Aether core runs Psiphon as a program of its own, the psiphon-tunnel-core console client,
     # which the app ships beside the core as libpsiphon-tunnel-core.so; see compile-psiphon.sh.
     - name: Restore cached Psiphon client
@@ -224,6 +309,8 @@ jobs:
         cp -r ${{ github.workspace }}/libs-masterdns/. ${{ github.workspace }}/V2rayNG/app/libs/
         cp -r ${{ github.workspace }}/libs-dnstt/. ${{ github.workspace }}/V2rayNG/app/libs/
         cp -r ${{ github.workspace }}/libs-noizdns/. ${{ github.workspace }}/V2rayNG/app/libs/
+        cp -r ${{ github.workspace }}/libs-vaydns/. ${{ github.workspace }}/V2rayNG/app/libs/
+        cp -r ${{ github.workspace }}/libs-slipstream/. ${{ github.workspace }}/V2rayNG/app/libs/
 
     # Psiphon's client starts with the newest server list the build could fetch, so a fresh install has
     # servers before it can reach the list on its own; see fetch-psiphon-servers.sh.
@@ -267,7 +354,7 @@ jobs:
         chmod 755 gradlew
         # The JVM unit tests are the only automated check of the Kotlin logic; a failure stops the
         # build before anything is assembled or signed.
-        ./gradlew :app:testPlaystoreDebugUnitTest
+        ./gradlew :app:testPlaystoreDebugUnitTest :app:testFdroidDebugUnitTest
         ./gradlew licenseFdroidReleaseReport
         ./gradlew assembleRelease -PpattngVersion="${{ inputs.release_tag }}" -Pandroid.injected.signing.store.file=${{ steps.android_keystore.outputs.filePath }} -Pandroid.injected.signing.store.password=${{ secrets.APP_KEYSTORE_PASSWORD }} -Pandroid.injected.signing.key.alias=${{ secrets.APP_KEYSTORE_ALIAS }} -Pandroid.injected.signing.key.password=${{ secrets.APP_KEY_PASSWORD }}
     
@@ -291,18 +378,12 @@ jobs:
           done
           for abi in arm64-v8a armeabi-v7a x86_64 x86; do
             echo "$entries" | grep -q "^lib/$abi/" || continue
-            if ! echo "$entries" | grep -qx "lib/$abi/libmasterdns.so"; then
-              echo "::error::$(basename "$apk") lacks lib/$abi/libmasterdns.so"
-              status=1
-            fi
-            if ! echo "$entries" | grep -qx "lib/$abi/libdnstt.so"; then
-              echo "::error::$(basename "$apk") lacks lib/$abi/libdnstt.so"
-              status=1
-            fi
-            if ! echo "$entries" | grep -qx "lib/$abi/libnoizdns.so"; then
-              echo "::error::$(basename "$apk") lacks lib/$abi/libnoizdns.so"
-              status=1
-            fi
+            for lib in libmasterdns.so libdnstt.so libnoizdns.so libvaydns.so libslipstream.so; do
+              if ! echo "$entries" | grep -qx "lib/$abi/$lib"; then
+                echo "::error::$(basename "$apk") lacks lib/$abi/$lib"
+                status=1
+              fi
+            done
           done
         done
         exit $status

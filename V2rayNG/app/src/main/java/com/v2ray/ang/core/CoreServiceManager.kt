@@ -373,7 +373,7 @@ object CoreServiceManager {
     @Throws(Exception::class)
     private fun checkDnsttPort(service: Service, guid: String, core: DnsttCore, isReload: Boolean) {
         val attempt = "${service.javaClass.simpleName} ${if (isReload) "reload" else "start"}"
-        val ports = if (core.ssh == null) listOf(core.port) else listOf(core.port, core.tunnelPort)
+        val ports = core.sessionPorts
         ports.forEach { port ->
             when (val check = DnsttCoreManager.checkSessionPort(port)) {
                 DnsttCoreManager.PortCheck.Free -> Unit

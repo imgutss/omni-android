@@ -43,6 +43,25 @@ class OmniTransferLabTest {
     }
 
     @Test
+    fun tunnelPingUsesRealHttpSamplesAndExcludesWarmup() = runBlocking {
+        HttpFixture(requests = 5).use { fixture ->
+            val runtime = FakeRuntime()
+            val result = OmniTransferLab(runtime, clientFactory = { OkHttpClient() }).ping(
+                originalConfig = "{\"outbounds\":[{\"protocol\":\"vless\"}]}",
+                url = fixture.url,
+                samples = 4,
+                warmup = 1,
+            )
+            assertEquals(4, result.stats.attempted)
+            assertEquals(4, result.stats.succeeded)
+            assertEquals(0.0, result.stats.lossPercent)
+            assertTrue(result.stats.medianMs != null)
+            assertEquals(200, result.lastHttpStatus)
+            assertFalse(runtime.started)
+        }
+    }
+
+    @Test
     fun shortDownloadIsFailureRatherThanComparableFullSample() = runBlocking {
         HttpFixture().use { fixture ->
             val runtime = FakeRuntime()
@@ -107,11 +126,11 @@ class OmniTransferLabTest {
         override fun stop() { started = false }
     }
 
-    private class HttpFixture : AutoCloseable {
+    private class HttpFixture(requests: Int = 2) : AutoCloseable {
         private val server = ServerSocket(0, 10, InetAddress.getByName("127.0.0.1"))
         @Volatile var receivedUpload = 0
         private val worker = thread(isDaemon = true) {
-            repeat(2) {
+            repeat(requests) {
                 runCatching {
                     server.accept().use { socket ->
                         val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.ISO_8859_1))

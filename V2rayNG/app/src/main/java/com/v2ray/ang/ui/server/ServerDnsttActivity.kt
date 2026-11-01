@@ -18,7 +18,7 @@ import com.v2ray.ang.ui.compose.FormDropdownField
 import com.v2ray.ang.ui.compose.FormTextField
 import com.v2ray.ang.ui.compose.SettingsSwitchItem
 
-/** Editor for the official dnstt-client, including the remote SOCKS5 requirement. */
+/** Editor for the real DNS tunnel engines and their optional SSH/SOCKS layers. */
 class ServerDnsttActivity : BaseServerActivity() {
     override val serverConfigType: EConfigType = EConfigType.DNSTT
 
@@ -29,7 +29,12 @@ class ServerDnsttActivity : BaseServerActivity() {
         }.apply { configType = serverConfigType }
 
         ServerEditorScaffold(
-            title = stringResource(R.string.dnstt_title),
+            title = when (uiState.dnsttEngine) {
+                DnsttFmt.ENGINE_NOIZDNS -> "NoizDNS"
+                DnsttFmt.ENGINE_VAYDNS -> "VayDNS"
+                DnsttFmt.ENGINE_SLIPSTREAM -> "Slipstream"
+                else -> stringResource(R.string.dnstt_title)
+            },
             onSaveClick = { saveServer(uiState) },
         ) {
             FormTextField(
@@ -41,11 +46,17 @@ class ServerDnsttActivity : BaseServerActivity() {
             FormDropdownField(
                 label = stringResource(R.string.dnstt_lab_engine),
                 value = uiState.dnsttEngine,
-                options = listOf(DnsttFmt.ENGINE_OFFICIAL, DnsttFmt.ENGINE_NOIZDNS),
+                options = listOf(DnsttFmt.ENGINE_OFFICIAL, DnsttFmt.ENGINE_DNSTT, DnsttFmt.ENGINE_NOIZDNS, DnsttFmt.ENGINE_VAYDNS, DnsttFmt.ENGINE_SLIPSTREAM),
                 onValueChange = { selected ->
                     uiState.dnsttEngine = selected
                     if (selected == DnsttFmt.ENGINE_OFFICIAL) {
                         if (uiState.dnsttTransport == "tcp") uiState.dnsttTransport = "udp"
+                        uiState.dnsttNoiz = false
+                        uiState.dnsttStealth = false
+                        uiState.dnsttSshEnabled = false
+                    }
+                    if (selected == DnsttFmt.ENGINE_SLIPSTREAM) {
+                        uiState.dnsttTransport = "udp"
                         uiState.dnsttNoiz = false
                         uiState.dnsttStealth = false
                     }
@@ -55,10 +66,10 @@ class ServerDnsttActivity : BaseServerActivity() {
             FormDropdownField(
                 label = stringResource(R.string.dnstt_lab_transport),
                 value = uiState.dnsttTransport,
-                options = if (uiState.dnsttEngine == DnsttFmt.ENGINE_NOIZDNS) {
-                    listOf("doh", "dot", "udp", "tcp")
-                } else {
-                    listOf("doh", "dot", "udp")
+                options = when (uiState.dnsttEngine) {
+                    DnsttFmt.ENGINE_SLIPSTREAM -> listOf("udp")
+                    DnsttFmt.ENGINE_OFFICIAL -> listOf("doh", "dot", "udp")
+                    else -> listOf("doh", "dot", "udp", "tcp")
                 },
                 onValueChange = { uiState.dnsttTransport = it },
                 supportingText = stringResource(R.string.dnstt_transport_support),
@@ -85,6 +96,7 @@ class ServerDnsttActivity : BaseServerActivity() {
                 supportingText = stringResource(R.string.dnstt_domain_support),
                 isError = uiState.isDnsttDomainError,
             )
+            if (uiState.dnsttEngine != DnsttFmt.ENGINE_SLIPSTREAM) {
             FormTextField(
                 label = stringResource(R.string.dnstt_lab_public_key),
                 value = uiState.dnsttPublicKey,
@@ -106,7 +118,9 @@ class ServerDnsttActivity : BaseServerActivity() {
                 supportingText = stringResource(R.string.dnstt_utls_support),
                 isError = uiState.isDnsttUtlsError,
             )
-            if (uiState.dnsttEngine == DnsttFmt.ENGINE_NOIZDNS) {
+            }
+            if (uiState.dnsttEngine != DnsttFmt.ENGINE_OFFICIAL) {
+                if (uiState.dnsttEngine == DnsttFmt.ENGINE_NOIZDNS) {
                 SettingsSwitchItem(
                     title = stringResource(R.string.dnstt_lab_noiz),
                     summary = stringResource(R.string.dnstt_noiz_support),
@@ -123,12 +137,23 @@ class ServerDnsttActivity : BaseServerActivity() {
                     onCheckedChange = { uiState.dnsttStealth = it },
                     enabled = uiState.dnsttNoiz,
                 )
-                SettingsSwitchItem(
-                    title = stringResource(R.string.dnstt_lab_authoritative),
-                    summary = stringResource(R.string.dnstt_authoritative_support),
-                    checked = uiState.dnsttAuthoritative,
-                    onCheckedChange = { uiState.dnsttAuthoritative = it },
-                )
+                }
+                if (uiState.dnsttEngine != DnsttFmt.ENGINE_VAYDNS) {
+                    SettingsSwitchItem(
+                        title = stringResource(R.string.dnstt_lab_authoritative),
+                        summary = stringResource(R.string.dnstt_authoritative_support),
+                        checked = uiState.dnsttAuthoritative,
+                        onCheckedChange = { checked ->
+                        uiState.dnsttAuthoritative = checked
+                        if (uiState.dnsttEngine == DnsttFmt.ENGINE_SLIPSTREAM) {
+                            uiState.dnsttResolverAuthorities = uiState.dnsttResolver.split(',')
+                                .filter { it.isNotBlank() }
+                                .joinToString(",") { if (checked) "1" else "0" }
+                        }
+                    },
+                    )
+                }
+                if (uiState.dnsttEngine != DnsttFmt.ENGINE_SLIPSTREAM) {
                 FormDropdownField(
                     label = stringResource(R.string.dnstt_lab_resolver_mode),
                     value = uiState.dnsttResolverMode,
@@ -149,6 +174,7 @@ class ServerDnsttActivity : BaseServerActivity() {
                     keyboardType = KeyboardType.Number,
                     supportingText = stringResource(R.string.dnstt_max_payload_support),
                 )
+                }
                 if (!uiState.dnsttSshEnabled) {
                     FormTextField(
                         label = stringResource(R.string.dnstt_lab_socks_username),
@@ -162,6 +188,12 @@ class ServerDnsttActivity : BaseServerActivity() {
                     )
                 }
             }
+            if (uiState.dnsttEngine == DnsttFmt.ENGINE_VAYDNS) {
+                VayDnsFields(uiState)
+            }
+            if (uiState.dnsttEngine == DnsttFmt.ENGINE_SLIPSTREAM) {
+                SlipstreamFields(uiState)
+            }
             SettingsSwitchItem(
                 title = stringResource(R.string.dnstt_lab_ssh),
                 summary = stringResource(R.string.dnstt_ssh_support),
@@ -170,6 +202,7 @@ class ServerDnsttActivity : BaseServerActivity() {
                     uiState.dnsttSshEnabled = it
                     uiState.isDnsttSshError = false
                 },
+                enabled = uiState.dnsttEngine != DnsttFmt.ENGINE_OFFICIAL,
             )
             if (uiState.dnsttSshEnabled) {
                 FormTextField(
@@ -224,10 +257,16 @@ class ServerDnsttActivity : BaseServerActivity() {
             }
             Text(
                 text = stringResource(
-                    if (uiState.dnsttSshEnabled) {
+                    if (uiState.dnsttEngine == DnsttFmt.ENGINE_SLIPSTREAM) {
+                        R.string.slipstream_engine_notice
+                    } else if (uiState.dnsttEngine == DnsttFmt.ENGINE_VAYDNS) {
+                        R.string.vaydns_engine_notice
+                    } else if (uiState.dnsttSshEnabled) {
                         R.string.dnstt_ssh_engine_notice
                     } else if (uiState.dnsttEngine == DnsttFmt.ENGINE_NOIZDNS) {
                         R.string.dnstt_noiz_engine_notice
+                    } else if (uiState.dnsttEngine == DnsttFmt.ENGINE_DNSTT) {
+                        R.string.dnstt_compat_engine_notice
                     } else {
                         R.string.dnstt_engine_notice
                     }
@@ -270,4 +309,85 @@ class ServerDnsttActivity : BaseServerActivity() {
         }
         return super.validateCommonConfig(state, config)
     }
+}
+
+
+@Composable
+private fun SlipstreamFields(uiState: ServerUiState) {
+    FormTextField(
+        label = stringResource(R.string.slipstream_lab_keepalive),
+        value = uiState.slipstreamKeepAlive,
+        onValueChange = { uiState.slipstreamKeepAlive = it },
+        keyboardType = KeyboardType.Number,
+    )
+    FormDropdownField(
+        label = stringResource(R.string.slipstream_lab_congestion_control),
+        value = uiState.slipstreamCongestionControl,
+        options = listOf("bbr", "dcubic"),
+        onValueChange = { uiState.slipstreamCongestionControl = it },
+    )
+    SettingsSwitchItem(
+        title = stringResource(R.string.slipstream_lab_gso),
+        summary = stringResource(R.string.slipstream_gso_support),
+        checked = uiState.slipstreamGsoEnabled,
+        onCheckedChange = { uiState.slipstreamGsoEnabled = it },
+    )
+}
+
+@Composable
+private fun VayDnsFields(uiState: ServerUiState) {
+    SettingsSwitchItem(
+        title = stringResource(R.string.vaydns_lab_dnstt_compat),
+        summary = stringResource(R.string.vaydns_dnstt_compat_support),
+        checked = uiState.vaydnsDnsttCompat,
+        onCheckedChange = { uiState.vaydnsDnsttCompat = it },
+    )
+    FormDropdownField(
+        label = stringResource(R.string.vaydns_lab_record_type),
+        value = uiState.vaydnsRecordType,
+        options = listOf("txt", "cname", "a", "aaaa", "mx", "ns", "srv", "null", "caa"),
+        onValueChange = { uiState.vaydnsRecordType = it },
+    )
+    FormTextField(
+        label = stringResource(R.string.vaydns_lab_max_qname),
+        value = uiState.vaydnsMaxQnameLen,
+        onValueChange = { uiState.vaydnsMaxQnameLen = it },
+        keyboardType = KeyboardType.Number,
+    )
+    FormTextField(
+        label = stringResource(R.string.vaydns_lab_rps),
+        value = uiState.vaydnsRps,
+        onValueChange = { uiState.vaydnsRps = it },
+        keyboardType = KeyboardType.Decimal,
+    )
+    FormTextField(
+        label = stringResource(R.string.vaydns_lab_idle_timeout),
+        value = uiState.vaydnsIdleTimeout,
+        onValueChange = { uiState.vaydnsIdleTimeout = it },
+        keyboardType = KeyboardType.Number,
+    )
+    FormTextField(
+        label = stringResource(R.string.vaydns_lab_keepalive),
+        value = uiState.vaydnsKeepAlive,
+        onValueChange = { uiState.vaydnsKeepAlive = it },
+        keyboardType = KeyboardType.Number,
+    )
+    FormTextField(
+        label = stringResource(R.string.vaydns_lab_udp_timeout),
+        value = uiState.vaydnsUdpTimeout,
+        onValueChange = { uiState.vaydnsUdpTimeout = it },
+        keyboardType = KeyboardType.Number,
+    )
+    FormTextField(
+        label = stringResource(R.string.vaydns_lab_max_labels),
+        value = uiState.vaydnsMaxNumLabels,
+        onValueChange = { uiState.vaydnsMaxNumLabels = it },
+        keyboardType = KeyboardType.Number,
+    )
+    FormTextField(
+        label = stringResource(R.string.vaydns_lab_client_id_size),
+        value = uiState.vaydnsClientIdSize,
+        onValueChange = { uiState.vaydnsClientIdSize = it },
+        keyboardType = KeyboardType.Number,
+    )
 }

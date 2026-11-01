@@ -33,7 +33,11 @@ object CoreConfigContextBuilder {
      */
     fun build(context: Context, guid: String, routingTargets: Boolean = true): CoreConfigContext? {
         val config = MmkvManager.decodeServerConfig(guid) ?: return null
+        return build(context, guid, config, routingTargets)
+    }
 
+    /** Build the same analyzed context for an in-memory scanner candidate without persisting it. */
+    fun build(context: Context, guid: String, config: ProfileItem, routingTargets: Boolean = false): CoreConfigContext? {
         // CUSTOM: return immediately — CoreConfigManager handles this path on its own.
         if (config.configType == EConfigType.CUSTOM) {
             return CoreConfigContext(context = context, guid = guid, isCustom = true)

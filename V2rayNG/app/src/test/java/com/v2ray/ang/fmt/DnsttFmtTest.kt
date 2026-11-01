@@ -101,8 +101,10 @@ class DnsttFmtTest {
             dnsttNoiz = true
         }
         assertNull(DnsttFmt.normalize(mixed))
+        assertEquals("1.1.1.1:53,[2001:db8::1]:53", mixed.dnsttResolver)
+        assertEquals("0,1", mixed.dnsttResolverAuthorities)
+        assertEquals(listOf(false, true), DnsttFmt.resolverAuthorities(mixed))
         assertEquals("1.1.1.1:53,[2001:db8::1]:53", DnsttFmt.engineResolver(mixed.dnsttResolver!!))
-        assertEquals(listOf(false, true), DnsttFmt.resolverAuthorities(mixed.dnsttResolver!!))
 
         val partiallyMarked = profile().apply {
             dnsttTransport = "udp"

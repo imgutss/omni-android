@@ -121,6 +121,7 @@ class ServerUiState(
     masterDnsResolvers: String = "8.8.8.8",
     dnsttTransport: String = "doh",
     dnsttResolver: String = "https://cloudflare-dns.com/dns-query",
+    dnsttResolverAuthorities: String = "",
     dnsttDomain: String = "",
     dnsttPublicKey: String = "",
     dnsttUtls: String = DnsttFmt.DEFAULT_UTLS,
@@ -129,6 +130,18 @@ class ServerUiState(
     dnsttNoiz: Boolean = false,
     dnsttStealth: Boolean = false,
     dnsttMaxPayload: String = "0",
+    vaydnsDnsttCompat: Boolean = false,
+    vaydnsRecordType: String = "txt",
+    vaydnsMaxQnameLen: String = "101",
+    vaydnsRps: String = "0",
+    vaydnsIdleTimeout: String = "0",
+    vaydnsKeepAlive: String = "0",
+    vaydnsUdpTimeout: String = "0",
+    vaydnsMaxNumLabels: String = "0",
+    vaydnsClientIdSize: String = "0",
+    slipstreamKeepAlive: String = "5000",
+    slipstreamCongestionControl: String = "bbr",
+    slipstreamGsoEnabled: Boolean = false,
     dnsttResolverMode: String = "fanout",
     dnsttRrSpreadCount: String = "3",
     dnsttSocksUsername: String = "",
@@ -242,6 +255,7 @@ class ServerUiState(
     var masterDnsResolvers by mutableStateOf(masterDnsResolvers)
     var dnsttTransport by mutableStateOf(dnsttTransport)
     var dnsttResolver by mutableStateOf(dnsttResolver)
+    var dnsttResolverAuthorities by mutableStateOf(dnsttResolverAuthorities)
     var dnsttDomain by mutableStateOf(dnsttDomain)
     var dnsttPublicKey by mutableStateOf(dnsttPublicKey)
     var dnsttUtls by mutableStateOf(dnsttUtls)
@@ -250,6 +264,18 @@ class ServerUiState(
     var dnsttNoiz by mutableStateOf(dnsttNoiz)
     var dnsttStealth by mutableStateOf(dnsttStealth)
     var dnsttMaxPayload by mutableStateOf(dnsttMaxPayload)
+    var vaydnsDnsttCompat by mutableStateOf(vaydnsDnsttCompat)
+    var vaydnsRecordType by mutableStateOf(vaydnsRecordType)
+    var vaydnsMaxQnameLen by mutableStateOf(vaydnsMaxQnameLen)
+    var vaydnsRps by mutableStateOf(vaydnsRps)
+    var vaydnsIdleTimeout by mutableStateOf(vaydnsIdleTimeout)
+    var vaydnsKeepAlive by mutableStateOf(vaydnsKeepAlive)
+    var vaydnsUdpTimeout by mutableStateOf(vaydnsUdpTimeout)
+    var vaydnsMaxNumLabels by mutableStateOf(vaydnsMaxNumLabels)
+    var vaydnsClientIdSize by mutableStateOf(vaydnsClientIdSize)
+    var slipstreamKeepAlive by mutableStateOf(slipstreamKeepAlive)
+    var slipstreamCongestionControl by mutableStateOf(slipstreamCongestionControl)
+    var slipstreamGsoEnabled by mutableStateOf(slipstreamGsoEnabled)
     var dnsttResolverMode by mutableStateOf(dnsttResolverMode)
     var dnsttRrSpreadCount by mutableStateOf(dnsttRrSpreadCount)
     var dnsttSocksUsername by mutableStateOf(dnsttSocksUsername)
@@ -319,6 +345,8 @@ class ServerUiState(
         val isAether = configType == EConfigType.AETHER
         val isMasterDns = configType == EConfigType.MASTERDNS
         val isDnstt = configType == EConfigType.DNSTT
+        val isVaydns = isDnstt && dnsttEngine == DnsttFmt.ENGINE_VAYDNS
+        val isSlipstream = isDnstt && dnsttEngine == DnsttFmt.ENGINE_SLIPSTREAM
         val isPsiphon = isAether && aetherPsiphon != AetherPsiphon.OFF.type
         val isTor = isAether && aetherTor != AetherTor.OFF.type
 
@@ -421,6 +449,7 @@ class ServerUiState(
             masterDnsResolvers = if (isMasterDns) masterDnsResolvers.trim() else null,
             dnsttTransport = if (isDnstt) dnsttTransport else null,
             dnsttResolver = if (isDnstt) dnsttResolver.trim() else null,
+            dnsttResolverAuthorities = if (isDnstt) dnsttResolverAuthorities.nullIfBlank() else null,
             dnsttDomain = if (isDnstt) dnsttDomain.trim().lowercase() else null,
             dnsttPublicKey = if (isDnstt) dnsttPublicKey.trim() else null,
             dnsttUtls = if (isDnstt) dnsttUtls.trim() else null,
@@ -429,6 +458,18 @@ class ServerUiState(
             dnsttNoiz = if (isDnstt) dnsttNoiz else null,
             dnsttStealth = if (isDnstt) dnsttStealth else null,
             dnsttMaxPayload = if (isDnstt) dnsttMaxPayload.toIntOrNull() ?: -1 else null,
+            vaydnsDnsttCompat = if (isVaydns) vaydnsDnsttCompat else null,
+            vaydnsRecordType = if (isVaydns) vaydnsRecordType else null,
+            vaydnsMaxQnameLen = if (isVaydns) vaydnsMaxQnameLen.toIntOrNull() ?: -1 else null,
+            vaydnsRps = if (isVaydns) vaydnsRps.toDoubleOrNull() ?: -1.0 else null,
+            vaydnsIdleTimeout = if (isVaydns) vaydnsIdleTimeout.toIntOrNull() ?: -1 else null,
+            vaydnsKeepAlive = if (isVaydns) vaydnsKeepAlive.toIntOrNull() ?: -1 else null,
+            vaydnsUdpTimeout = if (isVaydns) vaydnsUdpTimeout.toIntOrNull() ?: -1 else null,
+            vaydnsMaxNumLabels = if (isVaydns) vaydnsMaxNumLabels.toIntOrNull() ?: -1 else null,
+            vaydnsClientIdSize = if (isVaydns) vaydnsClientIdSize.toIntOrNull() ?: -1 else null,
+            slipstreamKeepAlive = if (isSlipstream) slipstreamKeepAlive.toIntOrNull() ?: -1 else null,
+            slipstreamCongestionControl = if (isSlipstream) slipstreamCongestionControl else null,
+            slipstreamGsoEnabled = if (isSlipstream) slipstreamGsoEnabled else null,
             dnsttResolverMode = if (isDnstt) dnsttResolverMode else null,
             dnsttRrSpreadCount = if (isDnstt) dnsttRrSpreadCount.toIntOrNull() ?: -1 else null,
             dnsttSocksUsername = if (isDnstt) dnsttSocksUsername.nullIfBlank() else null,
@@ -551,6 +592,7 @@ class ServerUiState(
                 masterDnsResolvers = initialConfig.masterDnsResolvers ?: "8.8.8.8",
                 dnsttTransport = initialConfig.dnsttTransport ?: "doh",
                 dnsttResolver = initialConfig.dnsttResolver ?: "https://cloudflare-dns.com/dns-query",
+                dnsttResolverAuthorities = initialConfig.dnsttResolverAuthorities ?: "",
                 dnsttDomain = initialConfig.dnsttDomain ?: "",
                 dnsttPublicKey = initialConfig.dnsttPublicKey ?: "",
                 dnsttUtls = initialConfig.dnsttUtls ?: DnsttFmt.DEFAULT_UTLS,
@@ -559,6 +601,18 @@ class ServerUiState(
                 dnsttNoiz = initialConfig.dnsttNoiz == true,
                 dnsttStealth = initialConfig.dnsttStealth == true,
                 dnsttMaxPayload = (initialConfig.dnsttMaxPayload ?: 0).toString(),
+                vaydnsDnsttCompat = initialConfig.vaydnsDnsttCompat == true,
+                vaydnsRecordType = initialConfig.vaydnsRecordType ?: "txt",
+                vaydnsMaxQnameLen = (initialConfig.vaydnsMaxQnameLen ?: 101).toString(),
+                vaydnsRps = (initialConfig.vaydnsRps ?: 0.0).toString(),
+                vaydnsIdleTimeout = (initialConfig.vaydnsIdleTimeout ?: 0).toString(),
+                vaydnsKeepAlive = (initialConfig.vaydnsKeepAlive ?: 0).toString(),
+                vaydnsUdpTimeout = (initialConfig.vaydnsUdpTimeout ?: 0).toString(),
+                vaydnsMaxNumLabels = (initialConfig.vaydnsMaxNumLabels ?: 0).toString(),
+                vaydnsClientIdSize = (initialConfig.vaydnsClientIdSize ?: 0).toString(),
+                slipstreamKeepAlive = (initialConfig.slipstreamKeepAlive ?: 5_000).toString(),
+                slipstreamCongestionControl = initialConfig.slipstreamCongestionControl ?: "bbr",
+                slipstreamGsoEnabled = initialConfig.slipstreamGsoEnabled == true,
                 dnsttResolverMode = initialConfig.dnsttResolverMode ?: "fanout",
                 dnsttRrSpreadCount = (initialConfig.dnsttRrSpreadCount ?: 3).toString(),
                 dnsttSocksUsername = initialConfig.dnsttSocksUsername ?: "",

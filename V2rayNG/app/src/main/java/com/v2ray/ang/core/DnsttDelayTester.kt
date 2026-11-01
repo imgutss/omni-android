@@ -27,9 +27,10 @@ object DnsttDelayTester {
         core: DnsttCore,
         probe: suspend (port: Int, deadline: Long) -> Long,
     ): Long {
-        val deadline = deadlineAfter(TEST_BUDGET_MS)
-        return withCore(context, core, TEST_BUDGET_MS, guid) {
-            probe(core.port, deadline)
+        // Startup can take much longer than an individual HTTP probe on a censored DNS path.
+        // Start the probe budget only after the real engine and any SSH session are ready.
+        return withCore(context, core, STARTUP_BUDGET_MS, guid) {
+            probe(core.port, deadlineAfter(TEST_BUDGET_MS))
         } ?: UNTESTED
     }
 
@@ -43,7 +44,7 @@ object DnsttDelayTester {
         if (!DnsttCoreManager.isSupported(context, core.engine)) return@withLock null
         val live = withContext(Dispatchers.IO) { DnsttCoreManager.liveProcess(context) }
         if (live != null) {
-            if (live.key != core.key || live.port != core.tunnelPort) {
+            if (live.key != core.key || live.port != core.enginePort) {
                 LogUtil.i(AppConfig.TAG, "DnsttTest: another core owns the listener, guid=$guid")
                 return@withLock null
             }
@@ -57,7 +58,7 @@ object DnsttDelayTester {
                 null
             }
         }
-        val ports = if (core.ssh == null) listOf(core.port) else listOf(core.port, core.tunnelPort)
+        val ports = core.sessionPorts
         ports.forEach { port ->
             if (withContext(Dispatchers.IO) { DnsttCoreManager.checkSessionPort(port) } != DnsttCoreManager.PortCheck.Free) {
                 LogUtil.i(AppConfig.TAG, "DnsttTest: listener is unavailable, guid=$guid")

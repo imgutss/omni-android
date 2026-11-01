@@ -170,11 +170,14 @@ data class ProfileItem(
     /** Official client_resolvers.txt content; blank means the documented sample default. */
     var masterDnsResolvers: String? = null,
 
-    /** DNSTT transport: doh, dot, or udp. */
+    /** DNS transport: doh, dot, udp, or tcp where the selected engine supports it. */
     var dnsttTransport: String? = null,
 
-    /** DoH URL or DoT/UDP resolver endpoint used by the official dnstt-client. */
+    /** DoH URL or comma-separated resolver endpoints; authority metadata is kept separately. */
     var dnsttResolver: String? = null,
+
+    /** Optional comma-separated 0/1 flags aligned with dnsttResolver; never shown as endpoint text. */
+    var dnsttResolverAuthorities: String? = null,
 
     /** Root DNS zone delegated to the DNSTT server. */
     var dnsttDomain: String? = null,
@@ -185,7 +188,7 @@ data class ProfileItem(
     /** Optional official uTLS distribution string. */
     var dnsttUtls: String? = null,
 
-    /** Engine selected for this DNSTT-compatible profile: official or NoizDNS. */
+    /** Engine selected for this profile: official DNSTT, compatibility DNSTT, NoizDNS, VayDNS, or Slipstream. */
     var dnsttEngine: String? = null,
 
     /** SlipNet/NoizDNS authoritative-resolver tuning, not a server-side flag. */
@@ -199,6 +202,22 @@ data class ProfileItem(
 
     /** Optional NoizDNS per-query payload cap; zero means the engine default. */
     var dnsttMaxPayload: Int? = null,
+
+    /** VayDNS wire and session tuning from SlipNet v19/v20 records. */
+    var vaydnsDnsttCompat: Boolean? = null,
+    var vaydnsRecordType: String? = null,
+    var vaydnsMaxQnameLen: Int? = null,
+    var vaydnsRps: Double? = null,
+    var vaydnsIdleTimeout: Int? = null,
+    var vaydnsKeepAlive: Int? = null,
+    var vaydnsUdpTimeout: Int? = null,
+    var vaydnsMaxNumLabels: Int? = null,
+    var vaydnsClientIdSize: Int? = null,
+
+    /** Slipstream QUIC keepalive, congestion control, and segmentation offload. */
+    var slipstreamKeepAlive: Int? = null,
+    var slipstreamCongestionControl: String? = null,
+    var slipstreamGsoEnabled: Boolean? = null,
 
     /** Multi-resolver distribution: fanout or roundrobin. */
     var dnsttResolverMode: String? = null,

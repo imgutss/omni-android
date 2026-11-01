@@ -832,9 +832,27 @@
     <string name="dnstt_public_key_support">کلید عمومی ۳۲ بایتی سرور DNSTT، به شکل ۶۴ نویسهٔ hexadecimal.</string>
     <string name="dnstt_lab_utls">توزیع fingerprint در uTLS</string>
     <string name="dnstt_utls_support">این مقدار به کلاینت رسمی داده می‌شود؛ مگر برای سرور خود، مقدار پیش‌فرض را نگه دارید.</string>
+    <string name="slipstream_engine_notice">از موتور واقعی Apache-2.0 Slipstream با QUIC استفاده می‌شود. bridge محلی مذاکره SOCKS5 راه‌دور را انجام می‌دهد و SSH از stream خام استفاده می‌کند.</string>
+    <string name="slipstream_lab_keepalive">فاصله Keepalive QUIC (میلی‌ثانیه)</string>
+    <string name="slipstream_lab_congestion_control">کنترل ازدحام</string>
+    <string name="slipstream_lab_gso">Generic Segmentation Offload (GSO)</string>
+    <string name="slipstream_gso_support">تنظیم اصلی GSO را به موتور Slipstream منتقل می‌کند.</string>
+    <string name="vaydns_engine_notice">از موتور واقعی CC0 VayDNS با reconnect مدیریت‌شده استفاده می‌شود. حالت مستقل به SOCKS5 راه‌دور و حالت SSH از طریق تونل raw متصل می‌شود. درخواست‌های resolver بازگشتی (RD=1) می‌مانند و نشان authoritative پروفایل SlipNet در این موتور اعمال نمی‌شود.</string>
+    <string name="vaydns_lab_dnstt_compat">سازگاری wire با DNSTT</string>
+    <string name="vaydns_dnstt_compat_support">از ClientID هشت‌بایتی و padding DNSTT به‌جای قالب اصلی VayDNS استفاده می‌کند.</string>
+    <string name="vaydns_lab_record_type">نوع رکورد DNS خروجی</string>
+    <string name="vaydns_lab_max_qname">حداکثر طول QNAME</string>
+    <string name="vaydns_lab_rps">محدودیت نرخ کوئری DNS (۰ = نامحدود)</string>
+    <string name="vaydns_lab_idle_timeout">مهلت بی‌کاری session (ثانیه، ۰ = پیش‌فرض)</string>
+    <string name="vaydns_lab_keepalive">Keepalive session (ثانیه، ۰ = پیش‌فرض)</string>
+    <string name="vaydns_lab_udp_timeout">مهلت پاسخ UDP (میلی‌ثانیه، ۰ = پیش‌فرض)</string>
+    <string name="vaydns_lab_max_labels">حداکثر labelهای داده (۰ = نامحدود)</string>
+    <string name="vaydns_lab_client_id_size">اندازه Client ID بایت (۰ = پیش‌فرض)</string>
+    <string name="dnstt_compat_engine_notice">از حالت سازگار DNSTT روی هسته NoizDNS استفاده می‌شود. خروجی تونل باید به SOCKS5 یا سرور SSH تنظیم‌شده برسد؛ هیچ اتصال مستقیم جایگزین نمی‌شود.</string>
+    <string name="dnstt_engine_support">DNSTT رسمی، حالت سازگار DNSTT، NoizDNS، VayDNS یا Slipstream؛ SSH یک لایهٔ جداست.</string>
     <string name="dnstt_engine_notice">از dnstt-client رسمی با مجوز public-domain استفاده می‌شود. سرور DNSTT باید خروجی tunnel را به SOCKS5 بدون احراز هویت وصل کند؛ این برنامه DNSTT را به TUN تبدیل نمی‌کند و proxy راه‌دور جعلی نمی‌سازد.</string>
-    <string name="dnstt_lab_ssh">DNSTT + SSH</string>
-    <string name="dnstt_ssh_support">اجرای نشست واقعی SSH از مسیر تونل خام DNSTT و ارائهٔ SOCKS5 محلی با direct-tcpip.</string>
+    <string name="dnstt_lab_ssh">SSH روی تونل DNS</string>
+    <string name="dnstt_ssh_support">اجرای نشست واقعی SSH از مسیر تونل خام DNS و ارائهٔ SOCKS5 محلی با direct-tcpip.</string>
     <string name="dnstt_lab_ssh_username">نام کاربری SSH</string>
     <string name="dnstt_lab_ssh_password">گذرواژهٔ SSH</string>
     <string name="dnstt_lab_ssh_auth_type">روش احراز هویت SSH</string>

@@ -827,7 +827,7 @@
 
     <string name="dnstt_title">DNSTT</string>
     <string name="dnstt_lab_engine">Engine</string>
-    <string name="dnstt_engine_support">Official DNSTT or the SlipNet-compatible NoizDNS engine.</string>
+    <string name="dnstt_engine_support">Official DNSTT, DNSTT compatibility, NoizDNS, VayDNS, or Slipstream; SSH is a separate layer.</string>
     <string name="dnstt_lab_noiz">NoizDNS mode</string>
     <string name="dnstt_noiz_support">Enable the NoizDNS wire format, polling, and cover-traffic behavior.</string>
     <string name="dnstt_lab_stealth">Stealth mode</string>
@@ -841,8 +841,8 @@
     <string name="dnstt_max_payload_support">Zero uses the engine default; otherwise enter the per-query byte cap.</string>
     <string name="dnstt_lab_socks_username">Remote SOCKS username</string>
     <string name="dnstt_lab_socks_password">Remote SOCKS password</string>
-    <string name="dnstt_lab_ssh">DNSTT + SSH</string>
-    <string name="dnstt_ssh_support">Run a real SSH session through the raw DNSTT tunnel and expose its direct-tcpip channels as local SOCKS5.</string>
+    <string name="dnstt_lab_ssh">SSH over DNS tunnel</string>
+    <string name="dnstt_ssh_support">Run a real SSH session through the raw DNS tunnel and expose its direct-tcpip channels as local SOCKS5.</string>
     <string name="dnstt_lab_ssh_username">SSH username</string>
     <string name="dnstt_lab_ssh_password">SSH password</string>
     <string name="dnstt_lab_ssh_auth_type">SSH authentication</string>
@@ -868,6 +868,23 @@
     <string name="dnstt_public_key_support">The DNSTT server’s 32-byte public key, written as 64 hexadecimal characters.</string>
     <string name="dnstt_lab_utls">uTLS fingerprint distribution</string>
     <string name="dnstt_utls_support">Passed to the official client; leave the default unless your server requires another value.</string>
+    <string name="slipstream_engine_notice">Uses the real Apache-2.0 Slipstream QUIC engine. The local bridge performs remote SOCKS5 negotiation; SSH mode uses the raw stream.</string>
+    <string name="slipstream_lab_keepalive">QUIC keepalive interval (ms)</string>
+    <string name="slipstream_lab_congestion_control">Congestion control</string>
+    <string name="slipstream_lab_gso">Generic Segmentation Offload (GSO)</string>
+    <string name="slipstream_gso_support">Passes the original GSO preference to the Slipstream engine.</string>
+    <string name="vaydns_engine_notice">Uses the real CC0 VayDNS engine with managed reconnection. Standalone mode reaches the remote SOCKS5 service; SSH mode authenticates through the raw tunnel. Resolver requests stay recursive (RD=1); SlipNet authoritative markers are not applied by this engine.</string>
+    <string name="vaydns_lab_dnstt_compat">DNSTT wire compatibility</string>
+    <string name="vaydns_dnstt_compat_support">Uses 8-byte ClientID and DNSTT padding instead of the native VayDNS wire format.</string>
+    <string name="vaydns_lab_record_type">Downstream DNS record type</string>
+    <string name="vaydns_lab_max_qname">Maximum QNAME wire length</string>
+    <string name="vaydns_lab_rps">DNS query rate limit (requests/second, 0 = unlimited)</string>
+    <string name="vaydns_lab_idle_timeout">Session idle timeout (seconds, 0 = default)</string>
+    <string name="vaydns_lab_keepalive">Session keepalive (seconds, 0 = default)</string>
+    <string name="vaydns_lab_udp_timeout">UDP response timeout (ms, 0 = default)</string>
+    <string name="vaydns_lab_max_labels">Maximum data labels (0 = unlimited)</string>
+    <string name="vaydns_lab_client_id_size">Client ID size in bytes (0 = default)</string>
+    <string name="dnstt_compat_engine_notice">Uses DNSTT compatibility mode with the NoizDNS core. The remote tunnel must terminate at a SOCKS5 service or the configured SSH server; no direct connection is substituted.</string>
     <string name="dnstt_engine_notice">Uses the official public-domain dnstt-client. The DNSTT server must forward its tunnel to a no-auth SOCKS5 service; this app does not turn DNSTT into a TUN or invent a remote proxy.</string>
     <string name="dnstt_error_domain_missing">Enter the DNSTT tunnel domain.</string>
     <string name="dnstt_error_domain">Enter a valid DNSTT tunnel domain.</string>

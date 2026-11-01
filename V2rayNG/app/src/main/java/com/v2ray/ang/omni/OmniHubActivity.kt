@@ -39,6 +39,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.v2ray.ang.R
+import com.v2ray.ang.omni.dns.OmniDnsScannerActivity
 import com.v2ray.ang.ui.base.HelperBaseComponentActivity
 import com.v2ray.ang.ui.compose.AppTopBar
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -150,6 +151,9 @@ fun OmniHubScreen(
                         }
                         OmniHubToolButton(R.string.omni_speed_title) {
                             context.startActivity(Intent(context, OmniSpeedLabActivity::class.java))
+                        }
+                        OmniHubToolButton(R.string.omni_dns_scanner_title) {
+                            context.startActivity(Intent(context, OmniDnsScannerActivity::class.java))
                         }
                         OmniHubToolButton(R.string.omni_routing_title) {
                             context.startActivity(Intent(context, OmniRoutingStudioActivity::class.java))

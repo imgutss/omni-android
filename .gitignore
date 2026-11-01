@@ -79,3 +79,12 @@ V2rayNG/app/src/main/assets/psiphon_servers.stamp
 
 # Generated NoizDNS Android executables
 /libs-noizdns/
+
+# Native build intermediates
+/target/
+
+# Generated VayDNS Android executables
+/libs-vaydns/
+
+# Generated Slipstream Android executables
+/libs-slipstream/

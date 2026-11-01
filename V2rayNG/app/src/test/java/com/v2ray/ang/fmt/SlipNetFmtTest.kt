@@ -49,9 +49,10 @@ class SlipNetFmtTest {
         assertNotNull(profile)
         assertEquals(EConfigType.DNSTT, profile?.configType)
         assertEquals("ns2.motoclub.site", profile?.dnsttDomain)
-        assertEquals("192.168.88.118:53:1", profile?.dnsttResolver)
+        assertEquals("192.168.88.118:53", profile?.dnsttResolver)
+        assertEquals("1", profile?.dnsttResolverAuthorities)
         assertEquals(key, profile?.dnsttPublicKey)
-        assertEquals(DnsttFmt.ENGINE_NOIZDNS, profile?.dnsttEngine)
+        assertEquals(DnsttFmt.ENGINE_DNSTT, profile?.dnsttEngine)
         assertTrue(profile?.dnsttAuthoritative == true)
         assertFalse(profile?.dnsttNoiz == true)
         assertEquals("roundrobin", profile?.dnsttResolverMode)
@@ -68,7 +69,9 @@ class SlipNetFmtTest {
         }
         val profile = SlipNetFmt.parse(uri(fields))
         assertNotNull(profile)
-        assertEquals("1.1.1.1:53:0,8.8.8.8:53:0", profile?.dnsttResolver)
+        assertEquals("1.1.1.1:53,8.8.8.8:53", profile?.dnsttResolver)
+        assertEquals("0,0", profile?.dnsttResolverAuthorities)
+        assertEquals(DnsttFmt.ENGINE_NOIZDNS, profile?.dnsttEngine)
         assertTrue(profile?.dnsttNoiz == true)
         assertTrue(profile?.dnsttStealth == true)
         assertEquals(80, profile?.dnsttMaxPayload)
@@ -89,7 +92,9 @@ class SlipNetFmtTest {
             it[27] = "0"
         }
         val mixed = SlipNetFmt.parse(uri(mixedFields)) ?: error("Mixed profile should import")
-        assertEquals("1.1.1.1:53:0,9.9.9.9:53:1", mixed.dnsttResolver)
+        assertEquals("1.1.1.1:53,9.9.9.9:53", mixed.dnsttResolver)
+        assertEquals("0,1", mixed.dnsttResolverAuthorities)
+        assertEquals(listOf(false, true), DnsttCore.of(mixed).resolverAuthorities)
         assertFalse(mixed.dnsttAuthoritative == true)
         assertFalse(DnsttCore.of(mixed).authoritative)
     }
@@ -106,7 +111,8 @@ class SlipNetFmtTest {
         assertFalse(restored.dnsttAuthoritative == true)
         assertFalse(DnsttCore.of(restored).authoritative)
         assertEquals(imported.dnsttResolver, restored.dnsttResolver)
-        assertEquals("1.1.1.1:53:0,9.9.9.9:53:1", restored.dnsttResolver)
+        assertEquals("1.1.1.1:53,9.9.9.9:53", restored.dnsttResolver)
+        assertEquals("0,1", restored.dnsttResolverAuthorities)
         assertFalse(omniUri.contains("authoritative=1"))
     }
 
@@ -119,7 +125,8 @@ class SlipNetFmtTest {
             it[37] = "[2001:db8::1]:53:1,9.9.9.9:53:1"
         }
         val profile = SlipNetFmt.parse(uri(hidden)) ?: error("Hidden profile should import")
-        assertEquals("[2001:db8::1]:53:1,9.9.9.9:53:1", profile.dnsttResolver)
+        assertEquals("[2001:db8::1]:53,9.9.9.9:53", profile.dnsttResolver)
+        assertEquals("1,1", profile.dnsttResolverAuthorities)
         assertTrue(profile.dnsttAuthoritative == true)
         assertTrue(DnsttCore.of(profile).authoritative)
     }
@@ -131,7 +138,7 @@ class SlipNetFmtTest {
             it[36] = "1"
             it[37] = "9.9.9.9:53:0"
         }
-        assertEquals("9.9.9.9:53:0", SlipNetFmt.parse(uri(hidden))?.dnsttResolver)
+        assertEquals("9.9.9.9:53", SlipNetFmt.parse(uri(hidden))?.dnsttResolver)
 
         val doh = fixture().also {
             it[4] = ""
@@ -145,7 +152,7 @@ class SlipNetFmtTest {
             it[4] = "1.1.1.1:53:0"
             it[22] = "dot"
         }
-        assertEquals("1.1.1.1:853:0", SlipNetFmt.parse(uri(dot))?.dnsttResolver)
+        assertEquals("1.1.1.1:853", SlipNetFmt.parse(uri(dot))?.dnsttResolver)
     }
 
     @Test
@@ -205,6 +212,113 @@ class SlipNetFmtTest {
         assertEquals(passphrase, profile?.dnsttSshKeyPassphrase)
         assertEquals("key", profile?.dnsttSshAuthType)
         assertEquals(2222, profile?.dnsttSshPort)
+    }
+
+    @Test
+    fun originalVaydnsRecordImportsItsOwnEngineAndAdvancedWireSettings() {
+        val fields = fixture("vaydns").also {
+            it[12] = "socks-user"
+            it[13] = "socks-pass"
+            it[41] = "1"
+            it[42] = "cname"
+            it[43] = "120"
+            it[44] = "25.5"
+            it[45] = "30"
+            it[46] = "3"
+            it[47] = "700"
+            it[48] = "4"
+            it[49] = "4"
+        }
+        val profile = SlipNetFmt.parse(uri(fields)) ?: error("VayDNS profile should import")
+        assertEquals(DnsttFmt.ENGINE_VAYDNS, profile.dnsttEngine)
+        assertTrue(profile.vaydnsDnsttCompat == true)
+        assertEquals("cname", profile.vaydnsRecordType)
+        assertEquals(120, profile.vaydnsMaxQnameLen)
+        assertEquals(25.5, profile.vaydnsRps)
+        assertEquals(30, profile.vaydnsIdleTimeout)
+        assertEquals(3, profile.vaydnsKeepAlive)
+        assertEquals(700, profile.vaydnsUdpTimeout)
+        assertEquals(4, profile.vaydnsMaxNumLabels)
+        assertEquals(4, profile.vaydnsClientIdSize)
+        val core = DnsttCore.of(profile)
+        assertEquals(18_002, core.enginePort)
+        assertEquals(listOf(18_001, 18_002), core.sessionPorts)
+
+        val restored = DnsttFmt.parse(EConfigType.DNSTT.protocolScheme + DnsttFmt.toUri(profile))
+        assertNotNull(restored)
+        assertEquals(profile.vaydnsRecordType, restored?.vaydnsRecordType)
+        assertEquals(profile.vaydnsRps, restored?.vaydnsRps)
+        assertEquals(profile.vaydnsClientIdSize, restored?.vaydnsClientIdSize)
+    }
+
+    @Test
+    fun vaydnsAndNoizSshRecordsKeepTheirDistinctEnginesAndRealSshChain() {
+        val vay = SlipNetFmt.parse(uri(fixture("vaydns_ssh").also {
+            it[14] = "1"
+            it[15] = "vay-user"
+            it[16] = "vay-pass"
+            it[19] = "127.0.0.1"
+        })) ?: error("VayDNS+SSH should import")
+        assertEquals(DnsttFmt.ENGINE_VAYDNS, vay.dnsttEngine)
+        assertEquals("vay-user", vay.dnsttSshUsername)
+        assertEquals(18_002, DnsttCore.of(vay).tunnelPort)
+
+        val noiz = SlipNetFmt.parse(uri(fixture("sayedns_ssh").also {
+            it[14] = "1"
+            it[15] = "noiz-user"
+            it[16] = "noiz-pass"
+            it[19] = "127.0.0.1"
+        })) ?: error("NoizDNS+SSH should import")
+        assertEquals(DnsttFmt.ENGINE_NOIZDNS, noiz.dnsttEngine)
+        assertTrue(noiz.dnsttNoiz == true)
+        assertEquals("noiz-user", noiz.dnsttSshUsername)
+    }
+
+    @Test
+    fun originalSlipstreamRecordImportsWithoutPublicKeyOrAuthoritySuffixes() {
+        val fields = fixture("ss").also {
+            it[4] = "1.1.1.1:53:0,9.9.9.9:53:1"
+            it[6] = "4000"
+            it[7] = "dcubic"
+            it[10] = "1"
+            it[11] = ""
+            it[12] = "socks-user"
+            it[13] = "socks-pass"
+        }
+        val profile = SlipNetFmt.parse(uri(fields)) ?: error("Slipstream profile should import")
+        assertEquals(DnsttFmt.ENGINE_SLIPSTREAM, profile.dnsttEngine)
+        assertEquals("", profile.dnsttPublicKey)
+        assertEquals("1.1.1.1:53,9.9.9.9:53", profile.dnsttResolver)
+        assertEquals("0,1", profile.dnsttResolverAuthorities)
+        assertEquals(4_000, profile.slipstreamKeepAlive)
+        assertEquals("dcubic", profile.slipstreamCongestionControl)
+        assertTrue(profile.slipstreamGsoEnabled == true)
+        val core = DnsttCore.of(profile)
+        assertEquals(18_002, core.enginePort)
+        assertEquals(listOf(18_001, 18_002), core.sessionPorts)
+
+        val restored = DnsttFmt.parse(EConfigType.DNSTT.protocolScheme + DnsttFmt.toUri(profile))
+        assertNotNull(restored)
+        assertEquals(DnsttFmt.ENGINE_SLIPSTREAM, restored?.dnsttEngine)
+        assertEquals(profile.slipstreamCongestionControl, restored?.slipstreamCongestionControl)
+        assertEquals(profile.dnsttResolverAuthorities, restored?.dnsttResolverAuthorities)
+    }
+
+    @Test
+    fun slipstreamSshUsesTheSameRawEnginePortAndRealSshConfiguration() {
+        val profile = SlipNetFmt.parse(uri(fixture("slipstream_ssh").also {
+            it[11] = ""
+            it[14] = "1"
+            it[15] = "slip-user"
+            it[16] = "slip-pass"
+            it[19] = "127.0.0.1"
+        })) ?: error("Slipstream+SSH should import")
+        assertEquals(DnsttFmt.ENGINE_SLIPSTREAM, profile.dnsttEngine)
+        assertEquals("slip-user", profile.dnsttSshUsername)
+        val core = DnsttCore.of(profile)
+        assertEquals(18_002, core.tunnelPort)
+        assertEquals(18_002, core.enginePort)
+        assertEquals("slip-user", core.ssh?.username)
     }
 
     @Test

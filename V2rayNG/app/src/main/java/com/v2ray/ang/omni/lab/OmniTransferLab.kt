@@ -23,6 +23,12 @@ data class OmniTunnelConnectivity(
     val error: String? = null,
 )
 
+data class OmniTunnelPing(
+    val stats: OmniLatencyStats,
+    val lastHttpStatus: Int? = null,
+    val error: String? = null,
+)
+
 data class OmniTransferResult(
     val success: Boolean,
     val downloadBytes: Long = 0L,
@@ -81,6 +87,49 @@ class OmniTransferLab(
             throw cancelled
         } catch (error: Exception) {
             OmniTunnelConnectivity(false, error = error.message ?: error.javaClass.simpleName)
+        } finally {
+            runtime.stop()
+        }
+    }
+
+    /** Real HTTP TTFB samples through one live native tunnel; warm-up requests are not counted. */
+    suspend fun ping(
+        originalConfig: String,
+        url: String,
+        samples: Int = 5,
+        warmup: Int = 1,
+    ): OmniTunnelPing = withContext(Dispatchers.IO) {
+        require(samples in 1..20 && warmup in 0..5)
+        val config = try {
+            configurationFactory(originalConfig)
+        } catch (error: Exception) {
+            return@withContext OmniTunnelPing(OmniLatencyStats.from(List(samples) { null }, samples), error = error.message)
+        }
+        if (!runtime.start(config)) {
+            return@withContext OmniTunnelPing(OmniLatencyStats.from(List(samples) { null }, samples), error = "Core did not start")
+        }
+        val measured = ArrayList<Long?>(samples)
+        var lastStatus: Int? = null
+        var lastError: String? = null
+        try {
+            val client = clientFactory(runtime.socksPort)
+            repeat(warmup + samples) { iteration ->
+                val started = System.nanoTime()
+                var value: Long? = null
+                try {
+                    client.newCall(Request.Builder().url(url).header("Connection", "close").build()).execute().use { response ->
+                        lastStatus = response.code
+                        if (response.isSuccessful) value = ((System.nanoTime() - started) / 1_000_000L).coerceAtLeast(0L)
+                        else lastError = "HTTP ${response.code}"
+                    }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (error: Exception) {
+                    lastError = error.message ?: error.javaClass.simpleName
+                }
+                if (iteration >= warmup) measured += value
+            }
+            OmniTunnelPing(OmniLatencyStats.from(measured, samples), lastStatus, if (measured.any { it != null }) null else lastError)
         } finally {
             runtime.stop()
         }
